@@ -163,6 +163,11 @@ extern "C" int setenv(const char *name, const char *value, int overwrite);
 //#include <python_wrapper.h>
 #endif
 
+#ifdef HAVE_VANISHING_IDEAL
+#include "VanishingIdeal.h"
+#endif // HAVE_VANISHING_IDEAL
+
+void piShowProcList();
 #ifndef MAKE_DISTRIBUTION
 static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h);
 #endif
@@ -2764,6 +2769,72 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       }
       else
   #endif
+/*==================== vanishing ideal ======================*/
+#ifdef HAVE_VANISHING_IDEAL
+    if (strcmp(sys_cmd, "vanishingIdeal") == 0)
+    {
+      if ((h->Typ()       == STRING_CMD) &&
+          (h->next->Typ() == INT_CMD)    &&
+          (h->next->next  == NULL))
+      {
+        const char* mode                  = (const char*)     h->Data();
+        const int   printOperationDetails = (const int)(long) h->next->Data();
+        res->rtyp = IDEAL_CMD;
+        if      (strcmp(mode, "direct")    == 0)
+          res->data = gBForVanishingIdealDirect(printOperationDetails != 0 ? true : false);
+        else if (strcmp(mode, "recursive") == 0)
+          res->data = gBForVanishingIdealRecursive(printOperationDetails != 0 ? true : false);
+        else
+        {
+          PrintS("invalid usage: expected string parameter = 'direct' or 'recursive'"); PrintLn();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+      }
+      else if ((h->Typ()             == STRING_CMD) &&
+               (h->next->Typ()       == POLY_CMD)   &&
+               (h->next->next->Typ() == INT_CMD)    &&
+               (h->next->next->next  == NULL))
+      {
+        const char* mode                  = (const char*)     h->Data();
+        const poly  f                     = (const poly)      h->next->Data();
+        const int   printOperationDetails = (const int)(long) h->next->next->Data();
+        if      (strcmp(mode, "normalForm") == 0)
+        {
+          res->rtyp = POLY_CMD;
+          res->data = normalForm(f, printOperationDetails != 0 ? true : false);
+        }
+        else if (strcmp(mode, "isZeroFunction") == 0)
+        {
+          res->rtyp = INT_CMD;
+          res->data = (void*)(long)(isZeroFunction(f, printOperationDetails != 0 ? true : false) ? 1 : 0);
+        }
+        else
+        {
+          PrintS("invalid usage: expected string parameter = 'normalForm' or 'isZeroFunction'"); PrintLn();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+      }
+      else if ((h->Typ()       == INT_CMD) &&
+               (h->next->Typ() == INT_CMD) &&
+               (h->next->next  == NULL))
+      {
+        const int m                     = (const int)(long) h->Data();
+        const int printOperationDetails = (const int)(long) h->next->Data();
+        res->rtyp = INT_CMD;
+        if (m >= 1)
+          res->data = (void*)(long)smarandache(m, printOperationDetails != 0 ? true : false);
+        else
+        {
+          PrintS("invalid usage: expected positive integer"); PrintLn();
+          res->data = 0;
+        }
+      }
+      return FALSE;
+    }
+    else
+#endif
   /*==== connection to Sebastian Jambor's code ======*/
   /* This code connects Sebastian Jambor's code for
      computing the minimal polynomial of an (n x n) matrix
