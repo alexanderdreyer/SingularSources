@@ -70,45 +70,226 @@ FactoredNumber::FactoredNumber (const int p, const int exponent)
   m_exponents.insert(m_exponents.begin(), exponent);
 }
 
+FactoredNumber::FactoredNumber (const FactoredNumber& fn)
+{
+  m_primes.clear();
+  m_exponents.clear();
+  list<int>::const_iterator fnItP;
+  list<int>::const_iterator fnItExp = fn.m_exponents.begin();
+  list<int>::iterator itP = m_primes.begin();
+  list<int>::iterator itExp = m_exponents.begin();
+  for (fnItP = fn.m_primes.begin(); fnItP != fn.m_primes.end(); fnItP++)
+  {
+    itP   = m_primes.insert(itP,   *fnItP);   itP++;
+    itExp = m_primes.insert(itExp, *fnItExp); itExp++;
+    fnItExp++;
+  }
+}
+
 FactoredNumber::~FactoredNumber ()
 {
   m_primes.clear();
   m_exponents.clear();
 }
 
-FactoredNumber& FactoredNumber::operator* (const FactoredNumber& fn)
+FactoredNumber FactoredNumber::operator* (const FactoredNumber& fn)
 {
-  return *this;
+  FactoredNumber result(1);
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  list<int>::iterator rItP = result.m_primes.begin();
+  list<int>::iterator rItExp = result.m_exponents.begin();
+  while ((itP != m_primes.end()) || (fItP != fn.m_primes.end()))
+  {
+    if ((itP == m_primes.end()) || (*fItP < *itP))
+    {
+      rItP   = result.m_primes.insert(rItP,   *fItP);   rItP++;   fItP++;
+      rItExp = result.m_primes.insert(rItExp, *fItExp); rItExp++; fItExp++;
+    }
+    else if ((fItP == fn.m_primes.end()) || (*itP < *fItP))
+    {
+      rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;   itP++;
+      rItExp = result.m_primes.insert(rItExp, *itExp); rItExp++; itExp++;
+    }
+    else
+    {
+      rItP   = result.m_primes.insert(rItP,   *itP);             rItP++;   itP++;   fItP++;
+      rItExp = result.m_primes.insert(rItExp, *itExp + *fItExp); rItExp++; itExp++; fItExp++;
+    }
+  }
+  return result;
 }
 
-FactoredNumber& FactoredNumber::cancel (const FactoredNumber& fn)
+FactoredNumber FactoredNumber::cancel (const FactoredNumber& fn)
 {
-  return *this;
+  FactoredNumber result(1);
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  list<int>::iterator rItP = result.m_primes.begin();
+  list<int>::iterator rItExp = result.m_exponents.begin();
+  int newExp = 0;
+  while ((itP != m_primes.end()) && (fItP != fn.m_primes.end()))
+  {
+    if (*fItP < *itP)
+    {
+      fItP++;
+      fItExp++;
+    }
+    else if (*itP < *fItP)
+    {
+      rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;   itP++;
+      rItExp = result.m_primes.insert(rItExp, *itExp); rItExp++; itExp++;
+    }
+    else
+    {
+      newExp = *itExp - *fItExp;
+      if (newExp > 0)
+      {
+        rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;
+        rItExp = result.m_primes.insert(rItExp, newExp); rItExp++;
+      }
+      itP++;   fItP++;
+      itExp++; fItExp++;
+    }
+  }
+  return result;
 }
 
-FactoredNumber& FactoredNumber::gcd (const FactoredNumber& fn)
+FactoredNumber FactoredNumber::gcd (const FactoredNumber& fn)
 {
-  return *this;
+  FactoredNumber result(1);
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  list<int>::iterator rItP = result.m_primes.begin();
+  list<int>::iterator rItExp = result.m_exponents.begin();
+  int minExp = 0;
+  while ((itP != m_primes.end()) && (fItP != fn.m_primes.end()))
+  {
+    if (*fItP < *itP)
+    {
+      fItP++;
+      fItExp++;
+    }
+    else if (*itP < *fItP)
+    {
+      itP++;
+      itExp++;
+    }
+    else
+    {
+      minExp = (*itExp < *fItExp) ? *itExp : *fItExp;
+      rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;   itP++;   fItP++;
+      rItExp = result.m_primes.insert(rItExp, minExp); rItExp++; itExp++; fItExp++;
+    }
+  }
+  return result;
 }
 
-FactoredNumber& FactoredNumber::lcm (const FactoredNumber& fn)
+FactoredNumber FactoredNumber::lcm (const FactoredNumber& fn)
 {
-  return *this;
+  FactoredNumber result(1);
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  list<int>::iterator rItP = result.m_primes.begin();
+  list<int>::iterator rItExp = result.m_exponents.begin();
+  int maxExp = 0;
+  while ((itP != m_primes.end()) || (fItP != fn.m_primes.end()))
+  {
+    if ((itP == m_primes.end()) || (*fItP < *itP))
+    {
+      rItP   = result.m_primes.insert(rItP,   *fItP);   rItP++;   fItP++;
+      rItExp = result.m_primes.insert(rItExp, *fItExp); rItExp++; fItExp++;
+    }
+    else if ((fItP == fn.m_primes.end()) || (*itP < *fItP))
+    {
+      rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;   itP++;
+      rItExp = result.m_primes.insert(rItExp, *itExp); rItExp++; itExp++;
+    }
+    else
+    {
+      maxExp = (*itExp > *fItExp) ? *itExp : *fItExp;
+      rItP   = result.m_primes.insert(rItP,   *itP);   rItP++;   itP++;   fItP++;
+      rItExp = result.m_primes.insert(rItExp, maxExp); rItExp++; itExp++; fItExp++;
+    }
+  }
+  return result;
 }
 
 FactoredNumber& FactoredNumber::operator= (const FactoredNumber& fn)
 {
+  m_primes.clear();
+  m_exponents.clear();
+  list<int>::const_iterator fnItP;
+  list<int>::const_iterator fnItExp = fn.m_exponents.begin();
+  list<int>::iterator itP = m_primes.begin();
+  list<int>::iterator itExp = m_exponents.begin();
+  for (fnItP = fn.m_primes.begin(); fnItP != fn.m_primes.end(); fnItP++)
+  {
+    itP   = m_primes.insert(itP,   *fnItP);   itP++;
+    itExp = m_primes.insert(itExp, *fnItExp); itExp++;
+    fnItExp++;
+  }
   return *this;
 }
 
 bool FactoredNumber::divides (const FactoredNumber& fn)
 {
-  return false;
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  if (m_primes.size() > fn.m_primes.size()) return false;
+  while ((itP != m_primes.end()) && (fItP != fn.m_primes.end()))
+  {
+    if (*itP < *fItP) return false;
+    else if (*fItP < *itP)
+    {
+      fItP++;
+      fItExp++;
+    }
+    else
+    {
+      if (*itExp > *fItExp) return false;
+      itP++;   fItP++;
+      itExp++; fItExp++;
+    }
+  }
+  return (itP == m_primes.end());
+}
+
+int power (const int b, const int e)
+{
+  int result = 1;
+  int factor = b;
+  int ee = e;
+  while (ee != 0)
+  {
+    if (ee % 2 != 0) result = result * factor;
+    ee = ee / 2;
+    factor = factor * factor;
+  }
+  return result;
 }
 
 int FactoredNumber::getInt ()
 {
-  return 0;
+  list<int>::iterator itP;
+  list<int>::iterator itExp = m_exponents.begin();
+  int result = 1;
+  for (itP = m_primes.begin(); itP != m_primes.end(); itP++)
+  {
+    result = result * power(*itP, *itExp);
+    itExp++;
+  }
+  return result;
 }
 
 char* FactoredNumber::toString ()
@@ -137,9 +318,32 @@ char* FactoredNumber::toString ()
   return h;
 }
 
-FactoredNumber& FactoredNumber::smarandache (const int n)
+bool FactoredNumber::operator== (const FactoredNumber& fn)
 {
-  return *this;
+  list<int>::const_iterator itP = m_primes.begin();
+  list<int>::const_iterator itExp = m_exponents.begin();
+  list<int>::const_iterator fItP = fn.m_primes.begin();
+  list<int>::const_iterator fItExp = fn.m_exponents.begin();
+  if (m_primes.size() != fn.m_primes.size()) return false;
+  while (itP != m_primes.end())
+  {
+    if ((*itP   != *fItP) || (*itExp != *fItExp)) return false;
+    itP++;   fItP++;
+    itExp++; fItExp++;
+  }
+  return true;
+}
+
+int FactoredNumber::smarandache ()
+{
+  int result = 1;
+  FactoredNumber factorial(1);
+  while (!this->divides(factorial))
+  {
+    result++;
+    factorial = factorial * FactoredNumber(result);
+  }
+  return result;
 }
 
 void FactoredNumber::print ()

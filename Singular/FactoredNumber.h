@@ -14,14 +14,16 @@ class FactoredNumber
   public:
     FactoredNumber (const int n);
     FactoredNumber (const int p, const int exponent);
+    FactoredNumber (const FactoredNumber& fn);
     ~FactoredNumber ();
-    FactoredNumber& operator* (const FactoredNumber& fn);
-    FactoredNumber& cancel (const FactoredNumber& fn);
+    FactoredNumber operator* (const FactoredNumber& fn);
+    FactoredNumber cancel (const FactoredNumber& fn);
     FactoredNumber& operator= (const FactoredNumber& fn);
-    FactoredNumber& gcd (const FactoredNumber& fn);
-    FactoredNumber& lcm (const FactoredNumber& fn);
+    FactoredNumber gcd (const FactoredNumber& fn);
+    FactoredNumber lcm (const FactoredNumber& fn);
     bool divides (const FactoredNumber& fn);
-    FactoredNumber& smarandache (const int n);
+    bool operator== (const FactoredNumber& fn);
+    int smarandache ();
     int getInt ();
     char* toString ();
     void print ();

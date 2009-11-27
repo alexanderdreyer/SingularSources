@@ -35,12 +35,6 @@ poly normalForm (const poly f, const bool printOperationDetails)
 
 bool isZeroFunction (const poly f, const bool printOperationDetails)
 {
-  printf("\nFactoredNumber(%d) = %s\n", 1, FactoredNumber(1).toString());
-  printf("\nFactoredNumber(%d) = %s\n", 5, FactoredNumber(5).toString());
-  printf("\nFactoredNumber(%d) = %s\n", 10, FactoredNumber(10).toString());
-  printf("\nFactoredNumber(%d) = %s\n", 50, FactoredNumber(50).toString());
-  printf("\nFactoredNumber(%d) = %s\n", 128, FactoredNumber(128).toString());
-  printf("\nFactoredNumber(%d) = %s\n", -1, FactoredNumber(2, 64).toString());
   return false;
 }
 
@@ -65,28 +59,7 @@ int helper_gcd (const int a, const int b)
 /* expects m >= 1 */
 int smarandache (const int m, const bool printOperationDetails)
 {
-  /* naive algorithm */
-  int lambda = 1;
-  int factorial = 1;
-  int mm = m;
-  int temp = 0;
-  int multCounter = 0;
-  int gcdCounter = 0;
-  int divCounter = 0;
-  while (factorial % mm != 0)
-  {
-    lambda++;
-    factorial = factorial * lambda; multCounter++;
-    temp = helper_gcd(mm, factorial); gcdCounter++;
-    mm = mm / temp; divCounter++;
-    factorial = factorial / temp; divCounter++;
-  }
-  if (printOperationDetails)
-  {
-    printf("\nperformed operations:\n   int-int-multiplications: %d,\n   int-int-gcd's: %d,\n   int-int-divisions: %d.\n\n",
-           multCounter, gcdCounter, divCounter);
-  }
-  return lambda;
+  return FactoredNumber(m).smarandache();
 }
 
 #endif

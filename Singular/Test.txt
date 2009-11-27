@@ -1,0 +1,5 @@
+ring r;
+poly f;
+system("vanishingIdeal", 1024, 1);
+system("vanishingIdeal", 3333, 1);
+system("vanishingIdeal", 48191, 1);
