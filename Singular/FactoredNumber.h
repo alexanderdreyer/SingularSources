@@ -16,18 +16,23 @@ class FactoredNumber
     FactoredNumber (const int p, const int exponent);
     FactoredNumber (const FactoredNumber& fn);
     ~FactoredNumber ();
-    FactoredNumber operator* (const FactoredNumber& fn);
-    FactoredNumber cancel (const FactoredNumber& fn);
+    FactoredNumber operator* (const FactoredNumber& fn) const;
+    FactoredNumber cancel (const FactoredNumber& fn) const;
     FactoredNumber& operator= (const FactoredNumber& fn);
-    FactoredNumber gcd (const FactoredNumber& fn);
-    FactoredNumber lcm (const FactoredNumber& fn);
-    bool divides (const FactoredNumber& fn);
-    bool operator== (const FactoredNumber& fn);
-    int smarandache ();
-    int getInt ();
-    char* toString ();
-    void print ();
-    void printLn ();
+    FactoredNumber gcd (const FactoredNumber& fn) const;
+    FactoredNumber lcm (const FactoredNumber& fn) const;
+    static FactoredNumber factorial (int nn, int* n);
+    static int power (const int b, const int e);
+    bool divides (const FactoredNumber& fn) const;
+    bool operator== (const FactoredNumber& fn) const;
+    bool operator!= (const FactoredNumber& fn) const;
+    int smarandache () const;
+    int getInt () const;
+    int getSmallestP () const;
+    int getExponent (const int p) const;
+    char* toString () const;
+    void print () const;
+    void printLn () const;
 };
 
 #endif

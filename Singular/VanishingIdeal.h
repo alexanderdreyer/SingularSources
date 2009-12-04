@@ -6,6 +6,7 @@
 ideal gBForVanishingIdealDirect (const bool printOperationDetails);
 ideal gBForVanishingIdealRecursive (const bool printOperationDetails);
 poly normalForm (const poly f, const bool printOperationDetails);
+poly p_alpha_a (const int* alpha, const int a);
 int smarandache (const int m, const bool printOperationDetails); // expects m >= 1
 bool isZeroFunction (const poly f, const bool printOperationDetails);
 
