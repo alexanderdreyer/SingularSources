@@ -2771,64 +2771,88 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
   #endif
 /*==================== vanishing ideal ======================*/
 #ifdef HAVE_VANISHING_IDEAL
+    /* Compile this code and type 'system("vanishingIdeal", "usage");'
+       to learn more about how to use the following code. */
     if (strcmp(sys_cmd, "vanishingIdeal") == 0)
     {
-      if ((h->Typ()       == STRING_CMD) &&
-          (h->next->Typ() == INT_CMD)    &&
-          (h->next->next  == NULL))
+      if ((h->Typ() == STRING_CMD) &&
+          (h->next  == NULL))
       {
-        const char* mode                  = (const char*)     h->Data();
-        const int   printOperationDetails = (const int)(long) h->next->Data();
+        const char* mode = (const char*) h->Data();
         res->rtyp = IDEAL_CMD;
-        if      (strcmp(mode, "direct")    == 0)
-          res->data = gBForVanishingIdealDirect(printOperationDetails != 0 ? true : false);
+        if      (strcmp(mode, "usage")     == 0)
+        {
+          usageVanishingIdealCode();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+        else if (strcmp(mode, "direct")    == 0)
+          res->data = gBForVanishingIdealDirect();
         else if (strcmp(mode, "recursive") == 0)
-          res->data = gBForVanishingIdealRecursive(printOperationDetails != 0 ? true : false);
+          res->data = gBForVanishingIdealRecursive();
         else
         {
-          PrintS("invalid usage: expected string parameter = 'direct' or 'recursive'"); PrintLn();
+          PrintS("invalid usage: expected string parameter = 'usage' or 'direct' or 'recursive'");
+          PrintLn();
           res->rtyp = INT_CMD;
           res->data = 0;
         }
       }
-      else if ((h->Typ()             == STRING_CMD) &&
-               (h->next->Typ()       == POLY_CMD)   &&
-               (h->next->next->Typ() == INT_CMD)    &&
-               (h->next->next->next  == NULL))
+      else if ((h->Typ()       == STRING_CMD) &&
+               (h->next->Typ() == POLY_CMD)   &&
+               (h->next->next  == NULL))
       {
         const char* mode                  = (const char*)     h->Data();
         const poly  f                     = (const poly)      h->next->Data();
-        const int   printOperationDetails = (const int)(long) h->next->next->Data();
         if      (strcmp(mode, "normalForm") == 0)
         {
           res->rtyp = POLY_CMD;
-          res->data = normalForm(f, printOperationDetails != 0 ? true : false);
+          res->data = normalForm(f);
         }
         else if (strcmp(mode, "isZeroFunction") == 0)
         {
           res->rtyp = INT_CMD;
-          res->data = (void*)(long)(isZeroFunction(f, printOperationDetails != 0 ? true : false) ? 1 : 0);
+          res->data = (void*)(long)(isZeroFunction(f) ? 1 : 0);
+        }
+        else if (strcmp(mode, "nonZeroTuple") == 0)
+        {
+          res->rtyp = INTVEC_CMD;
+          intvec* iv = new intvec(1, currRing->N, 0);
+          int* theTuple = nonZeroTuple(f);
+          for (int i = 0; i < currRing->N; i++) (*iv)[i] = theTuple[i];
+          delete [] theTuple;
+          res->data = (void *)iv;
         }
         else
         {
-          PrintS("invalid usage: expected string parameter = 'normalForm' or 'isZeroFunction'"); PrintLn();
+          PrintS("invalid usage: expected string parameter = 'normalForm' or 'isZeroFunction' or 'nonZeroTuple'");
+          PrintLn();
           res->rtyp = INT_CMD;
           res->data = 0;
         }
       }
-      else if ((h->Typ()       == INT_CMD) &&
-               (h->next->Typ() == INT_CMD) &&
+      else if ((h->Typ()       == STRING_CMD) &&
+               (h->next->Typ() == INT_CMD)    &&
                (h->next->next  == NULL))
       {
-        const int m                     = (const int)(long) h->Data();
-        const int printOperationDetails = (const int)(long) h->next->Data();
+        const char* mode = (const char*)     h->Data();
+        const int   m    = (const int)(long) h->next->Data();
         res->rtyp = INT_CMD;
-        if (m >= 1)
-          res->data = (void*)(long)smarandache(m, printOperationDetails != 0 ? true : false);
+        res->data = 0;
+        if (strcmp(mode, "smarandache") == 0)
+        {
+          if (m >= 1)
+            res->data = (void*)(long)smarandache(m);
+          else
+          {
+            PrintS("invalid usage: expected positive integer");
+            PrintLn();
+          }
+        }
         else
         {
-          PrintS("invalid usage: expected positive integer"); PrintLn();
-          res->data = 0;
+          PrintS("invalid usage: expected string parameter = 'smarandache'");
+          PrintLn();
         }
       }
       return FALSE;

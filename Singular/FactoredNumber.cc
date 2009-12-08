@@ -27,13 +27,12 @@ void FactoredNumber::insertPrime (list<int>& primes, list<int>& exponents, const
   else
   {
     /* we have itP == primes.end();
-       insert p^1 at the end */
+       thus insert p^1 at the end with exponent = 1*/
     primes.insert(itP, p);
     exponents.insert(itExp, 1);
   }
 }
 
-/* yields a representation of 1 for all n < 1 */
 FactoredNumber::FactoredNumber (const int n)
 {
   m_primes.clear();
@@ -41,6 +40,8 @@ FactoredNumber::FactoredNumber (const int n)
   int nn = n;
   int i = 0;
   int p;
+  /* Note that for nn <= 1, the created FactoredNumber will anyway
+     represent the natural number 1. */
   while (nn > 1)
   {
     if (nn % 2 == 0)
@@ -66,12 +67,16 @@ FactoredNumber::FactoredNumber (const int p, const int exponent)
 {
   m_primes.clear();
   m_exponents.clear();
-  m_primes.insert(m_primes.begin(), p);
-  m_exponents.insert(m_exponents.begin(), exponent);
+  if (exponent > 0)
+  {
+    m_primes.insert(m_primes.begin(), p);
+    m_exponents.insert(m_exponents.begin(), exponent);
+  }
 }
 
 FactoredNumber::FactoredNumber (const FactoredNumber& fn)
 {
+  /* This implements a deep copy. */
   m_primes.clear();
   m_exponents.clear();
   list<int>::const_iterator fnItP;
@@ -230,6 +235,7 @@ FactoredNumber FactoredNumber::lcm (const FactoredNumber& fn) const
 
 FactoredNumber& FactoredNumber::operator= (const FactoredNumber& fn)
 {
+  /* This implements a deep copy. */
   m_primes.clear();
   m_exponents.clear();
   list<int>::const_iterator fnItP;
@@ -318,6 +324,8 @@ int FactoredNumber::getExponent (const int p) const
 
 char* FactoredNumber::toString () const
 {
+  /* The caller of this method is responsible for deleting
+     the following char*. */
   char* h = new char[1000];
   if (m_primes.size() == 0)
   {
@@ -378,6 +386,7 @@ int FactoredNumber::smarandache () const
 {
   int result = 1;
   FactoredNumber fac(1);
+  /* We simply multiply until we have divisibility: */
   while (!this->divides(fac))
   {
     result++;
@@ -386,7 +395,6 @@ int FactoredNumber::smarandache () const
   return result;
 }
 
-/* assumes nn >= 0 */
 FactoredNumber FactoredNumber::factorial (int nn, int* n)
 {
   FactoredNumber fac(1);
