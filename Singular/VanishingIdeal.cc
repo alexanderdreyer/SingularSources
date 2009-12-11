@@ -116,21 +116,10 @@ poly p_alpha_a (const int* alpha, const int a)
   return result;
 }
 
-int getM()
-{
-  /* obtain m for the underlying coefficient ring Z/m */
-  int m = 0;
-  if      (rField_is_Ring_ModN(currRing)) m = (int)mpz_get_ui(currRing->ringflaga);
-  else if (rField_is_Ring_2toM(currRing)) m = binaryPower(2, (int)(unsigned long)currRing->ringflagb);
-  else if (rField_is_Ring_PtoM(currRing)) m = binaryPower((int)mpz_get_ui(currRing->ringflaga),
-                                                          (int)(unsigned long)currRing->ringflagb);
-  return m;
-}
-
 poly normalForm (const poly f)
 {
   int n = currRing->N;
-  int m = getM();
+  int m = rChar(currRing);
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = 0;
   counterGcd = 0;
@@ -276,7 +265,7 @@ void gBForVanishingIdealDirect_Helper (ideal& iii, const int n, const FactoredNu
 ideal gBForVanishingIdealDirect ()
 {
   int n = currRing->N;
-  int mm = getM();
+  int mm = rChar(currRing);
   FactoredNumber m(mm);
   int s = FactoredNumber::FactoredNumber(mm).smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
@@ -402,7 +391,7 @@ ideal gBForVanishingIdealRecursive_Helper (const int n, const FactoredNumber& m)
 ideal gBForVanishingIdealRecursive ()
 {
   int n = currRing->N;
-  int mm = getM();
+  int mm = rChar(currRing);
   FactoredNumber m(mm);
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = 0;
@@ -502,7 +491,7 @@ bool isZeroFunction (const poly f)
   /* This method implements Kalla's algorithm.
      Basically, a big-enough set of tuples must be tested. If f
      vanishes for all of these, then f is guaranteed to be the zero function. */
-  int m = getM();
+  int m = rChar(currRing);
   int n = currRing->N;
   int lambda = FactoredNumber::FactoredNumber(m).smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
@@ -527,7 +516,7 @@ bool isZeroFunction (const poly f)
 int* nonZeroTuple (const poly f)
 { /* This method implements Kalla's algorithm but - this time - returns
      the first tuple it finds, for which f does not vanish. */
-  int m = getM();
+  int m = rChar(currRing);
   int n = currRing->N;
   int lambda = FactoredNumber::FactoredNumber(m).smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
