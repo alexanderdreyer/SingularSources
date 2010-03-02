@@ -63,22 +63,6 @@ void usageVanishingIdealCode ()
   printf("\nsmallest natural number k such that n divides k!.\n\n");
 }
 
-int binaryPower (const int a, const int b)
-{
-  /* computes a^b according to the binary representation of b,
-     i.e., a^7 = a^4 * a^2 * a^1. This saves some multiplications. */
-  int result = 1;
-  int factor = a;
-  int bb = b;
-  while (bb != 0)
-  {
-    if (bb % 2 != 0) result = result * factor;
-    bb = bb / 2;
-    factor = factor * factor;
-  }
-  return result;
-}
-
 int binaryPowerMod (const int a, const int b, const int m)
 {
   /* computes a^b mod m according to the binary representation of b,
@@ -205,7 +189,7 @@ void checkedInsert (ideal& iii, const int n, const FactoredNumber& m,
     i++;
   }
   if (alphaMinimal)
-    idInsertPolyNoDuplicates(iii, p_alpha_a(alpha, a.getInt()));
+    idInsertPolyWithTests(iii, IDELEMS(iii), p_alpha_a(alpha, a.getInt()), false, false);
   return;
 }
 
@@ -224,7 +208,7 @@ void checkedInsertTerm (ideal& iii, poly& term, const int n, const FactoredNumbe
     i++;
   }
   if (alphaMinimal)
-    idInsertPolyNoDuplicates(iii, pCopy(term));
+    idInsertPolyWithTests(iii, IDELEMS(iii), pCopy(term), false, false);
   return;
 }
 
