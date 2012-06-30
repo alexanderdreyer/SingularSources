@@ -297,10 +297,10 @@ P_PROCS_MODULES = FieldZp FieldIndep FieldQ FieldGeneral
 ifeq ($(DL_KERNEL),1)
 OBJS 	:= $(OBJS) $(DL_KERNEL_SOURCES:.cc=.o)
 DBMSR_SO= dbmsr.so
-DL_LIBS := $(DBMSR_SO) ${PYOBJECT_MODULE}
+DL_LIBS := $(DBMSR_SO) ${PYOBJECT_MODULE} countedref.${MODULE_SUFFIX}
 ifeq ($(HAVE_MPSR), 1)
 MPSR_SO	=	mpsr.so
-DL_LIBS := 	$(DL_LIBS) $(MPSR_SO) ${PYOBJECT_MODULE}
+DL_LIBS := 	$(DL_LIBS) $(MPSR_SO) ${PYOBJECT_MODULE} countedref.${MODULE_SUFFIX}
 endif
 else
 ifndef LD_STATIC
@@ -493,10 +493,15 @@ mpsr.so: $(MPSR_SOURCES:.cc=.dl_o)
 dbmsr.so: $(DBMSR_SOURCES:.cc=.dl_o)
 	$(LD) ${SLDFLAGS} -o $@ $^ ${GLIBC_DYN_FIX}
 
-# dynamic module for python bject support
+# dynamic module for python object support
 pyobject.${MODULE_SUFFIX}: pyobject.dl_o
 	@echo "build dynamic module pyobject..."
 	$(CXX) $^ ${PYTHON_MODULE_LDFLAGS} ${SLDFLAGS} ${PYTHON_MODULE_LIBS} ${LD_LIBC} -o $@
+
+# dynamic module for counted references object support
+countedref.${MODULE_SUFFIX}: countedref.dl_o
+	@echo "build dynamic module countedref..."
+	$(LD) -g ${SLDFLAGS} -o $@ $^ ${GLIBC_DYN_FIX}
 
 src: scanner.cc grammar.h grammar.cc libparse.cc
 
