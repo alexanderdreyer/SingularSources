@@ -229,7 +229,9 @@ CXXSOURCES=grammar.cc scanner.cc attrib.cc \
     MinorInterface.cc \
     bigintm.cc pyobject_setup.cc \
     denom_list.cc \
-    minpoly.cc
+    minpoly.cc \
+    FactoredNumber.cc \
+    VanishingIdeal.cc
 
 # stuff for MP
 MPSR_SOURCES = mpsr_Put.cc mpsr_PutPoly.cc mpsr_GetPoly.cc mpsr_sl.cc\
@@ -417,6 +419,13 @@ misc_ip.o emacs.o tesths.o: version.h feOpt.inc
 
 claptmpl.o: claptmpl.cc mod2.h
 	${CXX} ${CXXFLAGS}  ${CPPFLAGS} ${DEFS} -c $<
+
+FactoredNumber.o: FactoredNumber.cc
+	${CXX} ${CXXFLAGS} ${CPPFLAGS} ${DEFS} -c $<
+
+VanishingIdeal.o: VanishingIdeal.cc
+	${CXX} ${CXXFLAGS} ${CPPFLAGS} ${DEFS} -c $<
+
 
 iparith.inc: gentable.cc grammar.h tok.h table.h mod2.h
 	 ${CXX} ${CXXFLAGS} ${CPPFLAGS} ${CXXTEMPLFLAGS} ${DEFS} gentable.cc \

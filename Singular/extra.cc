@@ -163,6 +163,12 @@ extern "C" int setenv(const char *name, const char *value, int overwrite);
 //#include <python_wrapper.h>
 #endif
 
+#ifdef HAVE_VANISHING_IDEAL
+#include "VanishingIdeal.h"
+#endif // HAVE_VANISHING_IDEAL
+
+void piShowProcList();
+
 #ifndef MAKE_DISTRIBUTION
 static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h);
 #endif
@@ -2766,6 +2772,126 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       }
       else
   #endif
+/*==================== vanishing ideal ======================*/
+#ifdef HAVE_VANISHING_IDEAL
+    /* Compile this code and type 'system("vanishingIdeal", "usage");'
+       to learn more about how to use the following code. */
+    if (strcmp(sys_cmd, "vanishingIdeal") == 0)
+    {
+      if ((h->Typ() == STRING_CMD) &&
+          (h->next  == NULL))
+      {
+        const char* mode = (const char*) h->Data();
+        res->rtyp = IDEAL_CMD;
+        if      (strcmp(mode, "usage")     == 0)
+        {
+          usageVanishingIdealCode();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+        else if (strcmp(mode, "direct")    == 0)
+          res->data = gBForVanishingIdealDirect();
+        else if (strcmp(mode, "recursive") == 0)
+          res->data = gBForVanishingIdealRecursive();
+        else
+        {
+          PrintS("invalid usage: expected string parameter = 'usage' or 'direct' or 'recursive'");
+          PrintLn();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+      }
+      else if ((h->Typ()       == STRING_CMD) &&
+               (h->next->Typ() == POLY_CMD)   &&
+               (h->next->next  == NULL))
+      {
+        const char* mode                  = (const char*)     h->Data();
+        const poly  f                     = (const poly)      h->next->Data();
+        if      (strcmp(mode, "normalForm") == 0)
+        {
+          res->rtyp = POLY_CMD;
+          res->data = normalForm(f);
+        }
+        else if (strcmp(mode, "isZeroFunction") == 0)
+        {
+          res->rtyp = INT_CMD;
+          res->data = (void*)(long)(isZeroFunction(f) ? 1 : 0);
+        }
+        else if (strcmp(mode, "nonZeroTuple") == 0)
+        {
+          res->rtyp = INTVEC_CMD;
+          intvec* iv = new intvec(1, currRing->N, 0);
+          int* theTuple = nonZeroTuple(f);
+          for (int i = 0; i < currRing->N; i++) (*iv)[i] = theTuple[i];
+          delete [] theTuple;
+          res->data = (void *)iv;
+        }
+        else
+        {
+          PrintS("invalid usage: expected string parameter = 'normalForm' or 'isZeroFunction' or 'nonZeroTuple'");
+          PrintLn();
+          res->rtyp = INT_CMD;
+          res->data = 0;
+        }
+      }
+      else if ((h->Typ()       == STRING_CMD) &&
+               (h->next->Typ() == INT_CMD)    &&
+               (h->next->next  == NULL))
+      {
+        const char* mode = (const char*)     h->Data();
+        const int   m    = (const int)(long) h->next->Data();
+        res->rtyp = INT_CMD;
+        res->data = 0;
+        if (strcmp(mode, "smarandache") == 0)
+        {
+          if (m >= 1)
+            res->data = (void*)(long)smarandache(m);
+          else
+          {
+            PrintS("invalid usage: expected positive integer");
+            PrintLn();
+          }
+        }
+        else
+        {
+          PrintS("invalid usage: expected string parameter = 'smarandache'");
+          PrintLn();
+        }
+      }
+      return FALSE;
+    }
+    else
+#endif
+/*==================== pDivStat =============================*/
+#if defined(PDEBUG) || defined(PDIV_DEBUG)
+    if(strcmp(sys_cmd,"pDivStat")==0)
+    {
+      extern void pPrintDivisbleByStat();
+      pPrintDivisbleByStat();
+      return FALSE;
+    }
+    else
+#endif
+/*==================== alarm ==================================*/
+#ifdef unix
+    if(strcmp(sys_cmd,"alarm")==0)
+    {
+      if ((h!=NULL) &&(h->Typ()==INT_CMD))
+      {
+        // standard variant -> SIGALARM (standard: abort)
+        //alarm((unsigned)h->next->Data());
+        // process time (user +system): SIGVTALARM
+        struct itimerval t,o;
+        memset(&t,0,sizeof(t));
+        t.it_value.tv_sec     =(unsigned)((unsigned long)h->Data());
+        setitimer(ITIMER_VIRTUAL,&t,&o);
+        return FALSE;
+      }
+      else
+        WerrorS("int expected");
+    }
+    else
+#endif
   /*==== connection to Sebastian Jambor's code ======*/
   /* This code connects Sebastian Jambor's code for
      computing the minimal polynomial of an (n x n) matrix
