@@ -80,6 +80,14 @@ class FactoredNumber
     ~FactoredNumber () {}
     /**
       * A method for computing the product of the FactoredNumber
+      * given by <c>*this</c> and the argument in place. The result
+      * is stored in <c>*this</c>.
+      * @param fn a reference to some FactoredNumber
+      * @return the product of *this and fn
+      */
+    FactoredNumber& operator*= (const FactoredNumber& fn);
+    /**
+      * A method for computing the product of the FactoredNumber
       * given by <c>*this</c> and the argument. The result is a new
       * instance of FactoredNumber.
       * @param fn a reference to some FactoredNumber

@@ -251,7 +251,8 @@ ideal gBForVanishingIdealDirect ()
   int n = currRing->N;
   int mm = rChar(currRing);
   FactoredNumber m(mm);
-  int s = FactoredNumber::FactoredNumber(mm).smarandache();
+
+  int s = m.smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = s;
   counterDivides = s;
