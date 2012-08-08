@@ -1,7 +1,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id$ */
 /*
 * ABSTRACT: numbers modulo 2^m
 */
@@ -372,7 +371,7 @@ number nr2mDiv (number a,number b)
     if ((NATNUMBER) b%2 == 0)
     {
       WerrorS("Division not possible, even by cancelling zero divisors.");
-      WerrorS("Result is integer division without remainder.");
+      //WerrorS("Result is integer division without remainder.");
       return (number) ((NATNUMBER) a / (NATNUMBER) b);
     }
   }

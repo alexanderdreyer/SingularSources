@@ -20,7 +20,7 @@
 
 //typedef struct s_buff_s * s_buff;
 
-#define S_BUFF_LEN 128
+#define S_BUFF_LEN 4096
 
 sigset_t ssi_sigmask; // set in ssiLink.cc
 sigset_t ssi_oldmask; // set in ssiLink.cc
@@ -30,15 +30,19 @@ sigset_t ssi_oldmask; // set in ssiLink.cc
 
 s_buff s_open(int fd)
 {
+  SSI_BLOCK_CHLD;
   s_buff F=(s_buff)omAlloc0(sizeof(*F));
   F->fd=fd;
   F->buff=(char*)omAlloc(S_BUFF_LEN);
+  SSI_UNBLOCK_CHLD;
   return F;
 }
 
 s_buff s_open_by_name(const char *n)
 {
+  SSI_BLOCK_CHLD;
   int fd=open(n,O_RDONLY);
+  SSI_UNBLOCK_CHLD;
   return s_open(fd);
 }
 
@@ -46,10 +50,12 @@ int    s_close(s_buff &F)
 {
   if (F!=NULL)
   {
+    SSI_BLOCK_CHLD;
     omFreeSize(F->buff,S_BUFF_LEN);
     int r=close(F->fd);
     omFreeSize(F,sizeof(*F));
     F=NULL;
+    SSI_UNBLOCK_CHLD;
     return r;
   }
   return 0;
@@ -57,6 +63,11 @@ int    s_close(s_buff &F)
 
 int s_getc(s_buff F)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
   if (F->bp>=F->end)
   {
     memset(F->buff,0,S_BUFF_LEN); /*debug*/
@@ -81,6 +92,11 @@ int s_getc(s_buff F)
 }
 int s_isready(s_buff F)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
   if (F->bp>=F->end) return 0;
   int p=F->bp+1;
   while((p<F->end)&&(F->buff[p]<=' ')) p++;
@@ -90,6 +106,11 @@ int s_isready(s_buff F)
 
 int s_ungetc(int c, s_buff F)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
   if (F->bp>=0)
   {
     F->buff[F->bp]=c;
@@ -99,6 +120,11 @@ int s_ungetc(int c, s_buff F)
 
 int s_readint(s_buff F)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
   char c;
   int neg=1;
   int r=0;
@@ -122,6 +148,11 @@ int s_readint(s_buff F)
 
 int s_readbytes(char *buff,int len, s_buff F)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
   int i=0;
   while((!F->is_eof)&&(i<len))
   {
@@ -133,6 +164,11 @@ int s_readbytes(char *buff,int len, s_buff F)
 
 void s_readmpz(s_buff F, mpz_t a)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return;
+  }
   mpz_set_ui(a,0);
   char c;
   int neg=1;
@@ -153,6 +189,11 @@ void s_readmpz(s_buff F, mpz_t a)
 
 void s_readmpz_base(s_buff F, mpz_ptr a, int base)
 {
+  if (F==NULL)
+  {
+    printf("link closed");
+    return;
+  }
   mpz_set_ui(a,0);
   char c;
   int neg=1;

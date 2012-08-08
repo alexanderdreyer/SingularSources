@@ -90,9 +90,9 @@ LDFLAGSG	= -L@prefix@/kernel -L../kernel -lkernel_g @LD_DYN_FLAGS1@ @LDFLAGS@
 LDFLAGSP	= -L@prefix@/kernel -L../kernel -lkernel_p @LD_DYN_FLAGS1@ @LDFLAGS@ 
 else
 ## -L/usr/local/lib -L@prefix@/modules/python --> PySingular
-LDFLAGS		= -L@prefix@/kernel -L/bin -lkernel @LDFLAGS@ -L/usr/local/lib -L../modules/python 
-LDFLAGSG	= -L@prefix@/kernel -L/bin -lkernel_g @LDFLAGS@ 
-LDFLAGSP	= -L@prefix@/kernel -L/bin -lkernel_p @LDFLAGS@ 
+LDFLAGS		= -L@prefix@/kernel -L../kernel -L/bin -lkernel @LDFLAGS@ -L/usr/local/lib -L../modules/python 
+LDFLAGSG	= -L@prefix@/kernel -L../kernel -L/bin -lkernel_g @LDFLAGS@ 
+LDFLAGSP	= -L@prefix@/kernel -L../kernel -L/bin -lkernel_p @LDFLAGS@ 
 endif
 LD_DYN_FLAGS1	= @LD_DYN_FLAGS1@
 LD_DYN_FLAGS2	= @LD_DYN_FLAGS2@
@@ -431,13 +431,9 @@ mpsr_Tok.inc: gentable2.cc grammar.h tok.h table.h mod2.h
 	/bin/rm -f gentable2 gentable2.exe
 
 
-svnver: 
-	svnversion >svnver
-
 version.h: ${SOURCES} ${HEADERS} Makefile.in mod2.h.in \
-           configure.in svnver
-	echo "#define feVersionId \""  `cat svnver` "\"" >version.h
-	echo "#define CC \"" ${CC} ${CFLAGS} ${DEFS}"\"" >>version.h
+           configure.in
+	echo "#define CC \"" ${CC} ${CFLAGS} ${DEFS}"\"" >version.h
 	echo "#define CXX \"" ${CXX} ${CXXFLAGS} ${DEFS} "\"" >>version.h
 
 libparse: libparse_main.o utils.o

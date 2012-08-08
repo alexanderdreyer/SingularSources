@@ -26,6 +26,7 @@
 #include "algext.h"
 
 #ifdef HAVE_NTL
+
 /// @return @a biFactorize returns a list of factors of F. If F is not monic
 ///         its leading coefficient is not outputted.
 CFList
@@ -182,7 +183,7 @@ ratBiFactorize (const CanonicalForm & G,         ///< [in] a bivariate poly
       {
         for (CFFListIterator i= result; i.hasItem(); i++)
         {
-          LcF /= bCommonDen (i.getItem().factor());
+          LcF /= power (bCommonDen (i.getItem().factor()), i.getItem().exp());
           i.getItem()= CFFactor (i.getItem().factor()*
                        bCommonDen(i.getItem().factor()), i.getItem().exp());
         }
@@ -214,7 +215,7 @@ ratBiFactorize (const CanonicalForm & G,         ///< [in] a bivariate poly
     {
       for (CFFListIterator i= result; i.hasItem(); i++)
       {
-        LcF /= bCommonDen (i.getItem().factor());
+        LcF /= power (bCommonDen (i.getItem().factor()), i.getItem().exp());
         i.getItem()= CFFactor (i.getItem().factor()*
                      bCommonDen(i.getItem().factor()), i.getItem().exp());
       }

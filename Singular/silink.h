@@ -3,7 +3,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id$ */
 /*
 * ABSTRACT: general interface to links
 */
@@ -113,4 +112,5 @@ typedef struct
 typedef link_struct* link_list;
 
 extern link_list ssiToBeClosed;
+extern BOOLEAN ssiToBeClosed_inactive;
 #endif // SILINK_H

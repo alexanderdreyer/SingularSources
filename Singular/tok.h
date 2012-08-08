@@ -6,7 +6,6 @@
 /*
 * ABSTRACT: tokens, types for interpreter; general macros
 */
-/* $Id$ */
 
 #ifndef MYYSTYPE
 #include <kernel/structs.h>
@@ -84,7 +83,7 @@ enum {
   INT_CMD,
   INTDIV_CMD,
   INTERPOLATE_CMD,
-  INTMOD_CMD,
+  INTMOD_CMD, /* deprec., use '%' */
   INTVEC_CMD,
   IS_RINGVAR,
   JANET_CMD,

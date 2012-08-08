@@ -734,9 +734,9 @@ char * showOption()
 char * versionString()
 {
   char* str = StringSetS("");
-  StringAppend("Singular for %s version %s (%d-%s)  %s\nwith\n",
+  StringAppend("Singular for %s version %s (%d)  %s\nwith\n",
                S_UNAME, S_VERSION1, SINGULAR_VERSION,
-               feVersionId,singular_date);
+               singular_date);
   StringAppendS("\t");
 #ifdef HAVE_FACTORY
               StringAppend("factory(%s),", factoryVersion);
@@ -1009,28 +1009,32 @@ void m2_end(int i)
   mmEndStat();
   #endif
   fe_reset_input_mode();
-  idhdl h = currPack->idroot;
-  while(h != NULL)
+  if (ssiToBeClosed_inactive)
   {
-    if(IDTYP(h) == LINK_CMD)
+    ssiToBeClosed_inactive=FALSE;
+
+    idhdl h = currPack->idroot;
+    while(h != NULL)
     {
-      idhdl hh=h->next;
-      //Print("kill %s\n",IDID(h));
-      killhdl(h, currPack);
-      h = hh;
+      if(IDTYP(h) == LINK_CMD)
+      {
+        idhdl hh=h->next;
+        //Print("kill %s\n",IDID(h));
+        killhdl(h, currPack);
+        h = hh;
+      }
+      else
+      {
+        h = h->next;
+      }
     }
-    else
+    link_list hh=ssiToBeClosed;
+    while(hh!=NULL)
     {
-      h = h->next;
+      //Print("close %s\n",hh->l->name);
+      slClose(hh->l);
+      hh=ssiToBeClosed;
     }
-  }
-  extern link_list ssiToBeClosed;
-  link_list hh=ssiToBeClosed;
-  while(hh!=NULL)
-  {
-    //Print("close %s\n",hh->l->name);
-    slClose(hh->l);
-    hh=ssiToBeClosed;
   }
   if (!singular_in_batchmode)
   {

@@ -24,6 +24,7 @@
 #include "facFqBivarUtil.h"
 
 #ifdef HAVE_NTL
+
 /// Factorization over a finite field
 ///
 /// @return @a multiFactorize returns a factorization of F

@@ -63,6 +63,7 @@ bug_c_dp
 bug_chin
 bug_chinrem_mat
 bug_charseries
+bug_charseries2
 bug_diff
 bug_division
 bug_factorize
@@ -136,6 +137,7 @@ elimlib_s
 equising_s
 facstd
 factorizep_s
+factorizeQ_s
 factorizeQa_s
 fermat_gcd_1var
 fermat_gcd_2var

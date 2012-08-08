@@ -1,7 +1,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id$ */
 
 /*
 * ABSTRACT: general interface to links
@@ -336,6 +335,7 @@ BOOLEAN slDump(si_link l)
     if (res)
       Werror("dump: Error for link of type %s, mode: %s, name: %s",
              l->m->type, l->mode, l->name);
+    if (!SI_LINK_R_OPEN_P(l)) slClose(l); // do not close r/w links
     return res;
   }
   else

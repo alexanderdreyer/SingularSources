@@ -26,6 +26,7 @@
 #include <Singular/feOpt.h>
 #include <Singular/version.h>
 #include <Singular/silink.h>
+#include <Singular/ssiLink.h>
 
 /* undef, if you don't want GDB to come up on error */
 
@@ -85,13 +86,18 @@ void sig_pipe_hdl(int sig)
 
 void sig_term_hdl(int sig)
 {
- while (ssiToBeClosed!=NULL)
- {
-   slClose(ssiToBeClosed->l);
-   if (ssiToBeClosed==NULL) break;
-   ssiToBeClosed=(link_list)ssiToBeClosed->next;
- }
- exit(1);
+  if (ssiToBeClosed_inactive)
+  {
+    ssiToBeClosed_inactive=FALSE;
+    while (ssiToBeClosed!=NULL)
+    {
+      slClose(ssiToBeClosed->l);
+      if (ssiToBeClosed==NULL) break;
+      ssiToBeClosed=(link_list)ssiToBeClosed->next;
+    }
+    exit(1);
+  }
+  //else: we already shutting down: let's do m2_end ist work
 }
 
 /*---------------------------------------------------------------------*
@@ -193,7 +199,7 @@ typedef struct sigcontext_struct sigcontext;
 /*---------------------------------------------------------------------*/
 void sigsegv_handler(int sig, sigcontext s)
 {
-  fprintf(stderr,"Singular : signal %d (v: %d/%s):\n",sig,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d (v: %d):\n",sig,SINGULAR_VERSION);
   if (sig!=SIGINT)
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -223,25 +229,6 @@ void sigsegv_handler(int sig, sigcontext s)
   }
 #endif /* CALL_GDB */
   exit(0);
-}
-
-/*---------------------------------------------------------------------*/
-/**
- * @brief additional default signal handler
-
-  // some newer Linux version cannot have SIG_IGN for SIGCHLD,
-  // so use this nice routine here:
-  //  SuSe 9.x reports -1 always
-  //  Redhat 9.x/FC x reports sometimes -1
-  // see also: hpux_system
-  // also needed by getrusage (timer etc.)
-
- @param[in] sig
-**/
-/*---------------------------------------------------------------------*/
-void sig_chld_hdl(int sig)
-{
-  waitpid(-1,NULL,WNOHANG);
 }
 
 /*2
@@ -282,8 +269,8 @@ void init_signals()
 */
 void sigsegv_handler(int sig, int code, struct sigcontext *scp, char *addr)
 {
-  fprintf(stderr,"Singular : signal %d, code %d (v: %d/%s):\n",
-    sig,code,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d, code %d (v: %d):\n",
+    sig,code,SINGULAR_VERSION);
   if ((sig!=SIGINT)&&(sig!=SIGABRT))
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -318,7 +305,7 @@ void init_signals()
   si_set_signal(SIGILL, sigsegv_handler);
   si_set_signal(SIGIOT, sigsegv_handler);
   si_set_signal(SIGINT ,sigint_handler);
-  si_set_signal(SIGCHLD, (void (*)(int))SIG_IGN);
+  si_set_signal(SIGCHLD, (si_hdl_typ)sig_chld_hdl);
   si_set_signal(SIGPIPE, (si_hdl_typ)sig_pipe_hdl);
 }
 #else
@@ -329,8 +316,8 @@ void init_signals()
 */
 void sigsegv_handler(int sig)
 {
-  fprintf(stderr,"Singular : signal %d (v: %d/%s):\n",
-    sig,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d (v: %d):\n",
+    sig,SINGULAR_VERSION);
   if (sig!=SIGINT)
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -406,7 +393,8 @@ void sigint_handler(int sig)
     {
       c = 'q';
     }
-    else if (((char*)(feOptSpec[FE_OPT_CNTRLC].value))[0])
+    else if ((feOptSpec[FE_OPT_CNTRLC].value!=NULL)
+    && ((char*)(feOptSpec[FE_OPT_CNTRLC].value))[0])
     {
       c = ((char*)(feOptSpec[FE_OPT_CNTRLC].value))[0];
     }

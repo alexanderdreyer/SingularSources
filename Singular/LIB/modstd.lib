@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-version="$Id: modstd.lib 14375 2011-08-23 09:29:47Z steidel $";
+version="$Id: modstd.lib 15072 2012-07-06 10:00:06Z motsak $";
 category = "Commutative Algebra";
 info="
 LIBRARY:  modstd.lib      Groebner basis of ideals
@@ -384,6 +384,8 @@ proc primeTest(def II, bigint p)
    {
       ideal I = II;
    }
+
+   I = simplify(I, 2);   // erase zero generators
 
    int i,j;
    poly f;

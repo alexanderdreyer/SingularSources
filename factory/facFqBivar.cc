@@ -5928,7 +5928,7 @@ biFactorize (const CanonicalForm& F, const ExtensionInfo& info)
   
   //check trivial case
   if (degree (A) == 1 || degree (A, 1) == 1 || 
-      (size (A) == 2 && gcd (degree (A), degree (A,1)).isOne()))
+      (size (A) == 2 && igcd (degree (A), degree (A,1))==1))
   {
     factors.append (A);
 
@@ -6102,9 +6102,7 @@ biFactorize (const CanonicalForm& F, const ExtensionInfo& info)
       if (extension)
       {
         CFList source, dest;
-        ExtensionInfo info2= ExtensionInfo (beta, alpha, delta, gamma, k,
-                             info.getGFName(), info.isInExtension());
-        appendMapDown (factors, A, info2, source, dest);
+        appendMapDown (factors, A, info, source, dest);
       }
       else
         factors.append (A);

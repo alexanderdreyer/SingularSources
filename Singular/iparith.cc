@@ -33,6 +33,7 @@
 #include <Singular/subexpr.h>
 #include <Singular/lists.h>
 #include <kernel/modulop.h>
+#include <kernel/clapconv.h>
 #ifdef HAVE_RINGS
 #include <kernel/rmodulon.h>
 #include <kernel/rmodulo2m.h>
@@ -269,8 +270,7 @@ static BOOLEAN jjOP_IV_I(leftv res, leftv u, leftv v)
     case '*': (*aa) *= bb; break;
     case '/':
     case INTDIV_CMD: (*aa) /= bb; break;
-    case '%':
-    case INTMOD_CMD: (*aa) %= bb; break;
+    case '%': (*aa) %= bb; break;
   }
   res->data=(char *)aa;
   return FALSE;
@@ -1111,10 +1111,8 @@ static BOOLEAN jjDIVMOD_I(leftv res, leftv u, leftv v)
   int r=0;
   switch (iiOp)
   {
-    case INTMOD_CMD:
-        r=c;            break;
     case '%':
-        r= (a % b);     break;
+        r=c;            break;
     case INTDIV_CMD:
         r=((a-c) /b);   break;
     case '/':
@@ -1213,11 +1211,11 @@ static BOOLEAN jjDIV_P(leftv res, leftv u, leftv v)
   { /* This means that q != 0 consists of just one term,
        or that currRing is over a coefficient ring. */
 #ifdef HAVE_RINGS
-    if (!rField_is_Domain())
-    {
-      WerrorS("division only defined over coefficient domains");
-      return TRUE;
-    }
+    //if (!rField_is_Domain())
+    //{
+    //  WerrorS("division only defined over coefficient domains");
+    //  return TRUE;
+    //}
     if (pNext(q)!=NULL)
     {
       WerrorS("division over a coefficient domain only implemented for terms");
@@ -2239,20 +2237,32 @@ static BOOLEAN jjGCD_I(leftv res, leftv u, leftv v)
   res->data=(char *)(long)p0;
   return FALSE;
 }
+//static BOOLEAN jjGCD_BI(leftv res, leftv u, leftv v)
+//{
+//  number a=(number) u->Data();
+//  number b=(number) v->Data();
+//  if (nlIsZero(a))
+//  {
+//    if (nlIsZero(b)) res->data=(char *)nlInit(1, NULL);
+//    else             res->data=(char *)nlCopy(b);
+//  }
+//  else
+//  {
+//    if (nlIsZero(b))  res->data=(char *)nlCopy(a);
+//    else res->data=(char *)nlGcd(a, b, NULL);
+//  }
+//  return FALSE;
+//}
+
 static BOOLEAN jjGCD_BI(leftv res, leftv u, leftv v)
-{
-  number a=(number) u->Data();
-  number b=(number) v->Data();
-  if (nlIsZero(a))
-  {
-    if (nlIsZero(b)) res->data=(char *)nlInit(1, NULL);
-    else             res->data=(char *)nlCopy(b);
-  }
-  else
-  {
-    if (nlIsZero(b))  res->data=(char *)nlCopy(a);
-    else res->data=(char *)nlGcd(a, b, NULL);
-  }
+{ 
+  number n1 = (number) u->CopyD();
+  number n2 = (number) v->CopyD();
+  CanonicalForm C1 = convSingNFactoryN (n1,NULL);
+  CanonicalForm C2 = convSingNFactoryN (n2,NULL);
+  CanonicalForm G = gcd (C1,C2);
+  number g = convFactoryNSingN (G,NULL);
+  res->data = g;
   return FALSE;
 }
 static BOOLEAN jjGCD_N(leftv res, leftv u, leftv v)

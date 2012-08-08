@@ -2,7 +2,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-// $Id$
 /*
 * ABSTRACT: convert data between Singular and factory
 */
@@ -49,8 +48,13 @@ CanonicalForm convSingNFactoryN( number n, const ring r )
       if ( n->s == 3 )
       {
         mpz_t dummy;
+        long lz=mpz_get_si(n->z);
+        if (mpz_cmp_si(n->z,lz)==0) term=lz;
+        else
+        {
         mpz_init_set( dummy,n->z );
         term = make_cf( dummy );
+        }
       }
       else
       {
@@ -74,8 +78,14 @@ number convFactoryNSingN( const CanonicalForm & n, const ring r)
 {
   if (n.isImm())
   {
+    long lz=n.intval();
+    int iz=(int)lz;
+    if ((long)iz==lz)
+    {
     if (r==NULL) return nlInit(n.intval(),NULL);
     else         return n_Init(n.intval(),r);
+    }
+    else  return nlRInit(lz);
   }
   else
   {
@@ -138,7 +148,15 @@ static void conv_RecPP ( const CanonicalForm & f, int * exp, sBucket_pt result, 
       p_SetExp( term, i, exp[i], r);
     //if (rRing_has_Comp(r)) p_SetComp(term, 0, r); // done by p_Init
     if ( f.isImm() )
-      pGetCoeff( term ) = n_Init( f.intval(), r );
+    	{long longf=f.intval();
+    	int intf=(int) longf;
+    	if((long)intf==longf)
+    		{if(r==NULL) pGetCoeff( term ) = nlInit(f.intval(),NULL);
+    			else pGetCoeff( term ) = n_Init(f.intval(),r);
+    		}
+    	else      
+      	pGetCoeff( term ) = nlRInit( longf );
+      	}
     else
     {
       number z=ALLOC_RNUMBER();
@@ -353,7 +371,15 @@ CanonicalForm convSingAFactoryA ( napoly p , const Variable & a, const ring r )
 static number convFactoryNSingAN( const CanonicalForm &f, const ring r)
 {
   if ( f.isImm() )
-    return n_Init( f.intval(), r->algring );
+    {long longf=f.intval();
+    	int intf=(int) longf;
+    	if((long)intf==longf)
+    		{if(r->algring==NULL) return nlInit(f.intval(),NULL);
+    			else return n_Init(f.intval(),r->algring);
+    		}
+    	else      
+      	return nlRInit( longf );
+      	}
   else
   {
     number z=ALLOC_RNUMBER();
