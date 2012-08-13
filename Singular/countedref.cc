@@ -112,7 +112,7 @@ public:
   /// Destructor
   ~CountedRefData()  {
     assume(m_count == 0);
-    if(m_data.e) omFree(m_data.e);
+    if (m_data.e) omFree(m_data.e);
     if (m_ring) --m_ring->ref;
   }
 
@@ -142,7 +142,7 @@ public:
   static BOOLEAN assign(leftv result, leftv arg) {
     // Case: replace assignment behind reference
     if (result->Data() != NULL)
-      return iiAssign(access(result), arg);
+      return iiAssign(access(result), access(arg));
 
     // Case: new reference
     if(arg->rtyp == IDHDL) {
