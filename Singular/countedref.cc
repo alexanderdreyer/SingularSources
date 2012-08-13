@@ -97,7 +97,7 @@ public:
   typedef unsigned long count_type;
 
   /// Construct reference for Singular object
-  CountedRefData(leftv data): m_data(*data), m_count(1), m_ring(NULL) {
+  CountedRefData(leftv data): m_data(*data), m_count(0), m_ring(NULL) {
 
     if (RingDependend(data->Typ())  && (currRing != NULL) ) {
       m_ring = currRing;
@@ -132,24 +132,12 @@ public:
   static BOOLEAN none(leftv result) { return set_to(result, NULL, NONE); }
 
 
-
-
   /// Set Singular type identitfier 
   static void set_id(id_type new_id) {  access_id() = new_id;  }
 
   /// Get Singular type identitfier 
   static id_type id() { return access_id(); }
 
-  static void* copy(self* ptr) {
-    if (ptr) ptr->reclaim();
-    return ptr;
-  }
-
-
-  static void destroy(self* ptr) {
-    if(ptr && !ptr->release())
-      delete ptr;
-  }
 
   static BOOLEAN assign(leftv result, leftv arg) {
     // Case: replace assignment behind reference
@@ -157,9 +145,11 @@ public:
       return iiAssign(access(result), arg);
 
     // Case: new reference
-    if(arg->rtyp == IDHDL)
-      return set_to(result, (is_ref(arg)? (self*)copy(static_cast<self*>(arg->Data())):
-                             new self(arg)), id());
+    if(arg->rtyp == IDHDL) {
+      self* pRef(is_ref(arg)? static_cast<self*>(arg->Data()): new self(arg));
+      pRef->reclaim();
+      return set_to(result, pRef, id());
+    }
       
     Werror("Can only take reference from identifier");
     return none(result);
@@ -167,7 +157,7 @@ public:
 
   /// Check for being reference in Singular interpreter object
   static BOOLEAN is_ref(leftv arg) { return (arg->Typ() == id()); }
-private:
+
   /// @name Reference counter management
   //@{
   count_type reclaim() { return ++m_count; }
@@ -216,7 +206,8 @@ char* countedref_String(blackbox *b, void* ptr)
 /// blackbox support - copy element
 void* countedref_Copy(blackbox*b, void* ptr)
 { 
-  return CountedRefData::copy(static_cast<CountedRefData*>(ptr));
+  if (ptr) static_cast<CountedRefData*>(ptr)->reclaim();
+  return ptr;
 }
 
 /// blackbox support - assign element
@@ -260,7 +251,9 @@ BOOLEAN countedref_OpM(int op, leftv res, leftv args)
 /// blackbox support - destruction
 void countedref_destroy(blackbox *b, void* ptr)
 {
-  CountedRefData::destroy(static_cast<CountedRefData*>(ptr));
+  CountedRefData* pRef = static_cast<CountedRefData*>(ptr);
+  if(ptr && !pRef->release())
+    delete pRef;
 }
 
 void countedref_init() 
