@@ -133,6 +133,10 @@ public:
     }
     leftv next = result.next;
     memcpy(&result, &m_data, sizeof(sleftv));
+    if (m_data.e) {
+      result.e = (Subexpr)omAlloc0Bin(sSubexpr_bin);
+      memcpy(result.e, m_data.e, sizeof(*m_data.e));
+    }
     result.next = next;
   }
 
