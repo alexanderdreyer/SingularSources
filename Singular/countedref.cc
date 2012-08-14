@@ -147,22 +147,43 @@ private:
   ring m_ring;
 };
 
+class CountedRefAccessBase {
+  typedef CountedRefAccessBase self;
 
- class CountedRefAccess {
+ public:
+  CountedRefAccessBase(leftv data):
+    m_data(data) {}
+
+  CountedRefAccessBase(const self& rhs):
+    m_data(rhs.m_data) {}
+
+  ~CountedRefAccessBase() {}
+
+  leftv operator->() { return *this; }
+  operator leftv() {  return m_data;  }
+
+ protected:
+   leftv m_data;
+ };
+
+
+ class CountedRefAccess:
+   public CountedRefAccessBase {
     typedef CountedRefAccess self;
+    typedef CountedRefAccessBase base;
 
   public:
     CountedRefAccess(CountedRefData* data):
-      m_owns(true), m_data(data->get()) { }
+      m_owns(true), base(data->get())  { }
 
 
     CountedRefAccess(leftv data):
-      m_owns(CountedRef::is_ref(data)), 
-      m_data(m_owns? static_cast<CountedRefData*>(data->Data())->get(): data) {
+      m_owns(CountedRef::is_ref(data)), base(data) {
+      if (m_owns) m_data = static_cast<CountedRefData*>(data->Data())->get();
     }
 
     CountedRefAccess(const self& rhs):
-      m_data(rhs.m_data), m_owns(rhs.m_owns) {
+      m_owns(rhs.m_owns), base(rhs) {
 
       if (m_owns){
         m_data = (leftv)omAlloc0(sizeof(sleftv));
@@ -172,37 +193,28 @@ private:
 
     ~CountedRefAccess() {  if (m_owns) omFree(m_data);  }
 
-    leftv operator->() { return *this; }
-    operator leftv() {  return m_data;  }
-
   private:
     bool m_owns;
-    leftv m_data;
-  };
+};
 
-class CountedRefCast {
+class CountedRefCast:
+  public CountedRefAccessBase {
     typedef CountedRefCast self;
-
+    typedef CountedRefAccessBase base;
   public:
-    CountedRefCast(CountedRefData* data):
-      m_data(data->get()) { }
+    CountedRefCast(void* data):
+      base(static_cast<CountedRefData*>(data)->get()) { }
 
     CountedRefCast(leftv data):
-      m_data(static_cast<CountedRefData*>(data->Data())->get()) { }
+      base(static_cast<CountedRefData*>(data->Data())->get()) { }
 
     CountedRefCast(const self& rhs):
-      m_data((leftv)omAlloc0(sizeof(sleftv))) {
+      base((leftv)omAlloc0(sizeof(sleftv))) {
       memcpy(m_data, rhs.m_data, sizeof(sleftv));
     }
 
     ~CountedRefCast() {  omFree(m_data);  }
-
-    leftv operator->() { return *this; }
-    operator leftv() {  return m_data;  }
-
-  private:
-    leftv m_data;
-  };
+};
 
 /// blackbox support - initialization
 void* countedref_Init(blackbox*)
@@ -213,15 +225,13 @@ void* countedref_Init(blackbox*)
 /// blackbox support - convert to string representation
 void countedref_Print(blackbox *b, void* ptr)
 {
-  if (ptr != NULL)
-    CountedRefCast(static_cast<CountedRefData*>(ptr))->Print();
+  if (ptr != NULL) CountedRefCast(ptr)->Print();
 }
 
 /// blackbox support - convert to string representation
 char* countedref_String(blackbox *b, void* ptr)
 {
-  if (ptr != NULL) 
-    return CountedRefCast(static_cast<CountedRefData*>(ptr))->String();
+  if (ptr != NULL) return CountedRefCast(ptr)->String();
 }
 
 /// blackbox support - copy element
@@ -236,7 +246,7 @@ BOOLEAN countedref_Assign(leftv result, leftv arg)
 {
   // Case: replace assignment behind reference
   if (result->Data() != NULL)
-    return iiAssign(CountedRefAccess(result), CountedRefAccess(arg));
+    return iiAssign(CountedRefCast(result), CountedRefAccess(arg));
   
   // Case: new reference
   if(arg->rtyp == IDHDL) 
