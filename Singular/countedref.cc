@@ -79,16 +79,13 @@ public:
       m_ring = currRing;
       ++m_ring->ref;
     }
-    if (data->e) {
-      m_data.e = (Subexpr)omAlloc0Bin(sSubexpr_bin);
-      memcpy(m_data.e, data->e, sizeof(*m_data.e));
-    }
+    m_data.e = copyall(data->e);
   }
 
   /// Destructor
   ~CountedRefData()  {
     assume(m_count == 0);
-    if (m_data.e) omFree(m_data.e);
+    killall(m_data.e);
     if (m_ring) --m_ring->ref;
   }
 
@@ -133,14 +130,35 @@ public:
     }
     leftv next = result.next;
     memcpy(&result, &m_data, sizeof(sleftv));
-    if (m_data.e) {
-      result.e = (Subexpr)omAlloc0Bin(sSubexpr_bin);
-      memcpy(result.e, m_data.e, sizeof(*m_data.e));
-    }
+    result.e = copyall(m_data.e);
     result.next = next;
   }
 
 private:
+
+  static Subexpr copyall(Subexpr rhs) {
+    if (rhs == NULL)
+      return NULL;
+
+    Subexpr result = (Subexpr)omAlloc0Bin(sSubexpr_bin);
+    Subexpr current = result;
+    memcpy(current, rhs, sizeof(*rhs));
+
+    while(rhs->next) {
+      current->next = (Subexpr)omAlloc0Bin(sSubexpr_bin);
+      memcpy(current->next, rhs->next, sizeof(*rhs));
+      current = current->next;
+      rhs = rhs->next;
+    } 
+    return result;
+  }
+  static void killall(Subexpr rhs) {
+    while(rhs) {
+      Subexpr next = rhs->next;
+      omFree(rhs);
+      rhs = next;
+    }
+  }
   /// Reference counter
   count_type m_count;
 
