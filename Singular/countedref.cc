@@ -133,6 +133,31 @@ public:
     result.e = copyall(m_data.e);
     result.next = next;
   }
+  BOOLEAN get(leftv result) {
+    if (m_ring && (m_ring != currRing)) {
+      Werror("Can only use references from current ring.");
+      return TRUE;
+    }
+    leftv next = result->next;
+    memcpy(result, &m_data, sizeof(sleftv));
+    result->e = copyall(m_data.e);
+    result->next = next;
+    
+    return FALSE;
+  }
+
+  static BOOLEAN dereference(leftv arg) {
+    assume((arg != NULL) && is_ref(arg));
+    self* pRef = static_cast<self*>(arg->Data());
+    assume(pRef != NULL);
+    return pRef->get(arg);
+  }
+
+  static BOOLEAN resolve(leftv arg) {
+    assume(arg != NULL);
+    if (is_ref(arg)) return dereference(arg);
+    return FALSE;
+  }
 
 private:
 
@@ -267,8 +292,9 @@ void* countedref_Copy(blackbox*b, void* ptr)
 BOOLEAN countedref_Assign(leftv result, leftv arg)
 {
   // Case: replace assignment behind reference
-  if (result->Data() != NULL)
-    return iiAssign(CountedRefCast(result), CountedRefAccess(arg));
+  if (result->Data() != NULL) 
+    return CountedRefData::dereference(result) || CountedRefData::resolve(arg) ||
+      iiAssign(result, arg);
   
   // Case: new reference
   if(arg->rtyp == IDHDL) 
@@ -285,33 +311,38 @@ BOOLEAN countedref_Op1(int op, leftv res, leftv head)
   if(op == TYPEOF_CMD)
     return CountedRefData::set_to(res, omStrDup("reference"), STRING_CMD);
 
-  CountedRefCast value(head);
+  if (CountedRefData::dereference(head))
+    return TRUE;
+
   if (op == DEF_CMD){
-    res->rtyp = value->Typ();
-    return iiAssign(res, value);
+    res->rtyp = head->Typ();
+    return iiAssign(res, head);
   }
-  return iiExprArith1(res, value, op);
+  return iiExprArith1(res, head, op);
 }
 
 /// blackbox support - binary operations
 BOOLEAN countedref_Op2(int op, leftv res, leftv head, leftv arg)
 {
-  return iiExprArith2(res, CountedRefCast(head), op, CountedRefAccess(arg));
+  return CountedRefData::dereference(head) || CountedRefData::resolve(arg) ||
+    iiExprArith2(res, head, op, arg);
 }
 
 /// blackbox support - ternary operations
 BOOLEAN countedref_Op3(int op, leftv res, leftv head, leftv arg1, leftv arg2)
 {
-  return iiExprArith3(res, op, CountedRefCast(head), 
-                      CountedRefAccess(arg1), CountedRefAccess(arg2));
+  return CountedRefData::dereference(head) || 
+    CountedRefData::resolve(arg1) || CountedRefData::resolve(arg2) ||
+    iiExprArith3(res, op, head, arg1, arg2);
 }
 
 
 /// blackbox support - n-ary operations
 BOOLEAN countedref_OpM(int op, leftv res, leftv args)
 {
-  CountedRefCast value(args);
-  value->next = args->next;
+  if (CountedRefData::dereference(args))
+    return TRUE;
+
   for(leftv current = args->next; current != NULL; current = current->next) {
     if(CountedRef::is_ref(current)) {
       CountedRefData* pRef = static_cast<CountedRefData*>(current->Data());
@@ -320,9 +351,8 @@ BOOLEAN countedref_OpM(int op, leftv res, leftv args)
       assume(pRef->count() > 0);
     }  
   }
-  args->next = NULL;
 
-  return iiExprArithM(res, value, op);
+  return iiExprArithM(res, args, op);
 }
 
 /// blackbox support - destruction
