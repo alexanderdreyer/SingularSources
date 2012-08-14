@@ -40,18 +40,18 @@ public:
 
   /// Set Singular type identitfier
   CountedRef(blackbox& bbx) {  
-    access_id() = setBlackboxStuff(&bbx, "reference");
+    CountedRefAccess_id() = setBlackboxStuff(&bbx, "reference");
   }
   CountedRef() { }
 
   /// Get Singular type identitfier
-  static id_type id() { return access_id(); }
+  static id_type id() { return CountedRefAccess_id(); }
 
   /// Check for being reference in Singular interpreter object
   static BOOLEAN is_ref(leftv arg) { return (arg->Typ() == id()); }
 private:
   /// Access identifier (one per class)
-  static id_type& access_id() {
+  static id_type& CountedRefAccess_id() {
     static id_type g_id = 0;
     return g_id;
   }
@@ -63,56 +63,7 @@ private:
  * It also stores the Singular token number, once per type.
  **/
 class CountedRefData: public CountedRef {
- typedef CountedRefData self;
-
-public:
-#if 0
-  class access {
-    typedef access self; 
-
-  public:
-    access(CountedRefData* data): 
-      m_data(NULL), m_owns(true) { init(&data->m_data, data->m_ring);  }
-
-
-    access(leftv data):
-      m_data(data), m_owns(is_ref(data)) {
-      if(m_owns) 
-        init((CountedRefData*)(data->Data()));
-    }
-
-    access(const self& rhs):
-      m_data(rhs.m_data), m_owns(rhs.m_owns) {
-
-      if (m_owns){
-        m_data = (leftv)omAlloc0(sizeof(sleftv)); 
-        if(rhs.m_data != NULL) memcpy(m_data, rhs.m_data, sizeof(sleftv));
-      }
-    }
-  
-    ~access() {  if (m_owns)  omFree(m_data);  }
-  
-    leftv operator->() { return *this; }
-    operator leftv() {  return m_data;  }
-
-  private:
-
-    void init(CountedRefData* all) { init(&(all->m_data), all->m_ring); }
-
-    void init(leftv data, ring ringdata) {
-      m_data = (leftv)omAlloc0(sizeof(sleftv));
-      if (RingDependend(data->Typ()) && (ringdata != currRing)) {
-        Werror("Can only use references from current ring.");
-        return;
-      }
-      memcpy(m_data, data, sizeof(sleftv));
-      data->next = NULL;
-    }
-    leftv m_data;
-    bool m_owns;
-  };
-#endif
-
+  typedef CountedRefData self;
 
   /// Forbit copy construction and normal assignment
   CountedRefData(const self&);
@@ -174,6 +125,7 @@ public:
     get(*result);
     return result;
   }
+
   void get(sleftv& result) {
     if (m_ring && (m_ring != currRing)) {
       Werror("Can only use references from current ring.");
@@ -182,9 +134,8 @@ public:
     leftv next = result.next;
     memcpy(&result, &m_data, sizeof(sleftv));
     result.next = next;
-
-
   }
+
 private:
   /// Reference counter
   count_type m_count;
@@ -197,20 +148,20 @@ private:
 };
 
 
- class access {
-    typedef access self;
+ class CountedRefAccess {
+    typedef CountedRefAccess self;
 
   public:
-    access(CountedRefData* data):
+    CountedRefAccess(CountedRefData* data):
       m_owns(true), m_data(data->get()) { }
 
 
-    access(leftv data):
+    CountedRefAccess(leftv data):
       m_owns(CountedRef::is_ref(data)), 
       m_data(m_owns? static_cast<CountedRefData*>(data->Data())->get(): data) {
     }
 
-    access(const self& rhs):
+    CountedRefAccess(const self& rhs):
       m_data(rhs.m_data), m_owns(rhs.m_owns) {
 
       if (m_owns){
@@ -219,7 +170,7 @@ private:
       }
     }
 
-    ~access() {  if (m_owns) omFree(m_data);  }
+    ~CountedRefAccess() {  if (m_owns) omFree(m_data);  }
 
     leftv operator->() { return *this; }
     operator leftv() {  return m_data;  }
@@ -229,6 +180,29 @@ private:
     leftv m_data;
   };
 
+class CountedRefCast {
+    typedef CountedRefCast self;
+
+  public:
+    CountedRefCast(CountedRefData* data):
+      m_data(data->get()) { }
+
+    CountedRefCast(leftv data):
+      m_data(static_cast<CountedRefData*>(data->Data())->get()) { }
+
+    CountedRefCast(const self& rhs):
+      m_data((leftv)omAlloc0(sizeof(sleftv))) {
+      memcpy(m_data, rhs.m_data, sizeof(sleftv));
+    }
+
+    ~CountedRefCast() {  omFree(m_data);  }
+
+    leftv operator->() { return *this; }
+    operator leftv() {  return m_data;  }
+
+  private:
+    leftv m_data;
+  };
 
 /// blackbox support - initialization
 void* countedref_Init(blackbox*)
@@ -240,14 +214,14 @@ void* countedref_Init(blackbox*)
 void countedref_Print(blackbox *b, void* ptr)
 {
   if (ptr != NULL)
-    access(static_cast<CountedRefData*>(ptr))->Print();
+    CountedRefCast(static_cast<CountedRefData*>(ptr))->Print();
 }
 
 /// blackbox support - convert to string representation
 char* countedref_String(blackbox *b, void* ptr)
 {
   if (ptr != NULL) 
-    return access(static_cast<CountedRefData*>(ptr))->String();
+    return CountedRefCast(static_cast<CountedRefData*>(ptr))->String();
 }
 
 /// blackbox support - copy element
@@ -260,10 +234,9 @@ void* countedref_Copy(blackbox*b, void* ptr)
 /// blackbox support - assign element
 BOOLEAN countedref_Assign(leftv result, leftv arg)
 {
-//  typedef CountedRefData::access access;
   // Case: replace assignment behind reference
   if (result->Data() != NULL)
-    return iiAssign(access(result), access(arg));
+    return iiAssign(CountedRefAccess(result), CountedRefAccess(arg));
   
   // Case: new reference
   if(arg->rtyp == IDHDL) 
@@ -280,34 +253,32 @@ BOOLEAN countedref_Op1(int op, leftv res, leftv head)
   if(op == TYPEOF_CMD)
     return CountedRefData::set_to(res, omStrDup("reference"), STRING_CMD);
 
+  CountedRefCast value(head);
   if (op == DEF_CMD){
-    access value(head);
     res->rtyp = value->Typ();
     return iiAssign(res, value);
   }
-  //typedef CountedRefData::access access;
-  return iiExprArith1(res, access(head), op);
+  return iiExprArith1(res, value, op);
 }
 
 /// blackbox support - binary operations
 BOOLEAN countedref_Op2(int op, leftv res, leftv head, leftv arg)
 {
-//  typedef CountedRefData::access access;
-  return iiExprArith2(res, access(head), op, access(arg));
+  return iiExprArith2(res, CountedRefCast(head), op, CountedRefAccess(arg));
 }
 
 /// blackbox support - ternary operations
 BOOLEAN countedref_Op3(int op, leftv res, leftv head, leftv arg1, leftv arg2)
 {
-//  typedef CountedRefData::access access;
-  return iiExprArith3(res, op, access(head), access(arg1), access(arg2));
+  return iiExprArith3(res, op, CountedRefCast(head), 
+                      CountedRefAccess(arg1), CountedRefAccess(arg2));
 }
 
 
 /// blackbox support - n-ary operations
 BOOLEAN countedref_OpM(int op, leftv res, leftv args)
 {
-  access value(args);
+  CountedRefCast value(args);
   value->next = args->next;
   for(leftv current = args->next; current != NULL; current = current->next) {
     if(CountedRef::is_ref(current)) {
