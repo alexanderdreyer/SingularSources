@@ -129,9 +129,10 @@ public:
 
   }
 
+  static idhdl* id_root;
+
   /// Destructor
   ~CountedRefData()  { }
-
 
   BOOLEAN get(leftv result) {
     if (m_ring && (m_ring != currRing)) {
@@ -159,6 +160,12 @@ private:
   ring m_ring;
 };
 
+/// blackbox support - initialization
+/// @note deals as marker for compatible references, too.
+void* countedref_Init(blackbox*)
+{
+  return NULL;
+}
 
 class CountedRef {
   typedef CountedRef self;
@@ -170,65 +177,52 @@ public:
   /// Name type for handling reference data
   typedef CountedRefData data_type;
 
-  /// Check for being reference in Singular interpreter object
-  static BOOLEAN is_ref(leftv arg) { return (arg->Typ() == id()); }
+  /// Check whether argument is already a reference type
+  static BOOLEAN is_ref(int typ) {
+    return ((typ > MAX_TOK) &&
+           (getBlackboxStuff(typ)->blackbox_Init == countedref_Init));
+  }
 
   /// Construct reference data object from 
   static BOOLEAN construct(leftv result, leftv arg) {
-    data_type* data = (is_ref(arg)? static_cast<data_type*>(arg->Data()):
-                       new data_type(arg));
+    data_type* data = (result->Typ() == arg->Typ()? 
+                       static_cast<data_type*>(arg->Data()): new data_type(arg));
     data->reclaim();
-
-    if (result->rtyp == IDHDL) {
+    if (result->rtyp == IDHDL)
       IDDATA((idhdl)result->data) = (char *)data;
-      IDTYP((idhdl)result->data)  = id();
-    }
-    else {
+    else
       result->data = (void *)data;
-      result->rtyp = id();
-    }
     return (data == NULL? TRUE: FALSE);
   }
 
   /// Kills the link to the referenced object
   static void destruct(data_type* data) {
-    if(data && !data->release())
-      omFree(data);
+    if(data && !data->release()) {
+      delete data;
+    }
   }
 
   /// Get the actual object
-  /// @note The may change leftv. It is common practice, so we are fine with it.
+  /// @note It may change leftv. It is common practice, so we are fine with it.
   static BOOLEAN dereference(leftv arg) {
-    assume((arg != NULL) && is_ref(arg));
-    data_type* pRef = static_cast<data_type*>(arg->Data());
-    assume(pRef != NULL);
-    return pRef->get(arg) || resolve_tail(arg);
+    assume((arg != NULL) && is_ref(arg->Typ()));
+    do {
+      assume(arg->Data() != NULL);
+      data_type* data = static_cast<data_type*>(arg->Data());
+      if(data->get(arg)) return TRUE;
+    } while (is_ref(arg->Typ()));
+    return resolve_tail(arg);
   }
 
   /// If necessary dereference.
   /// @note The may change leftv. It is common practice, so we are fine with it.
   static BOOLEAN resolve(leftv arg) {
     assume(arg != NULL);
-    if (is_ref(arg)) return dereference(arg);
+    while (is_ref(arg->Typ())) { if(dereference(arg)) return TRUE; };
     return resolve_tail(arg);
   }
 
-
-  /// Initialize blackbox type identifier
-  static id_type init(blackbox& bbx) {  
-    return identifier() = setBlackboxStuff(&bbx, "reference");
-  }
-
-  /// Get Singular type identitfier
-  static id_type id() { return identifier(); }
-
 private:
-  /// Access identifier (one per class)
-  static id_type& identifier() {
-    static id_type g_id = 0;
-    return g_id;
-  }
-
   /// Dereference (is needed) subsequent objects of sequences
   static BOOLEAN resolve_tail(leftv arg) {
     for(leftv next = arg->next; next != NULL; next = next->next)
@@ -237,12 +231,6 @@ private:
     return FALSE;
   }
 };
-
-/// blackbox support - initialization
-void* countedref_Init(blackbox*)
-{
-  return NULL;
-}
 
 /// blackbox support - convert to string representation
 void countedref_Print(blackbox *b, void* ptr)
@@ -279,7 +267,6 @@ BOOLEAN countedref_Assign(leftv result, leftv arg)
   return FALSE;
 }
                                                                      
-
 /// blackbox support - unary operations
 BOOLEAN countedref_Op1(int op, leftv res, leftv head)
 {
@@ -318,6 +305,53 @@ void countedref_destroy(blackbox *b, void* ptr)
   CountedRef::destruct(static_cast<CountedRefData*>(ptr));
 }
 
+
+/// blackbox support - assign element
+BOOLEAN countedref_AssignShared(leftv result, leftv arg)
+{
+  // Case: replace assignment behind reference
+  if (result->Data() != NULL)
+    return CountedRef::dereference(result) || CountedRef::resolve(arg) ||
+      iiAssign(result, arg);
+  
+  
+  if(CountedRef::resolve(arg))
+    return TRUE;
+
+  char* name=(char*)omAlloc0(512);
+  static unsigned long counter = 0;
+  do {
+    sprintf(name, "_shareddata_%s_%s_%d\0", result->Name(), arg->Name(), ++counter);
+  }
+  while(ggetid(name));
+  idhdl handle = enterid(name, 0, arg->Typ(), &IDROOT, FALSE);
+  omFree(name);
+  if (handle==NULL) {
+    Werror("Initializing shared failed");
+    return TRUE;
+  }
+  
+  IDDATA(handle) = (char*)arg->CopyD();
+  arg->data = handle;
+  arg->rtyp = IDHDL;
+  
+  return CountedRef::construct(result, arg);
+}
+
+/// blackbox support - destruction
+void countedref_destroyShared(blackbox *b, void* ptr)
+{
+  CountedRefData* data = static_cast<CountedRefData*>(ptr);
+
+  if(data && !data->release()) {
+    leftv tmp = (leftv) omAlloc0(sizeof(*tmp));
+    data->get(tmp);
+    killid(IDID((idhdl)(tmp->data)), &IDROOT);
+    delete data;
+  }
+
+}
+
 void countedref_init() 
 {
   blackbox *bbx = (blackbox*)omAlloc0(sizeof(blackbox));
@@ -332,7 +366,13 @@ void countedref_init()
   bbx->blackbox_Op3     = countedref_Op3;
   bbx->blackbox_OpM     = countedref_OpM;
   bbx->data             = omAlloc0(newstruct_desc_size());
-  CountedRef::init(*bbx);
+  setBlackboxStuff(bbx, "reference");
+
+  blackbox *bbxshared = 
+    (blackbox*)memcpy(omAlloc(sizeof(blackbox)), bbx, sizeof(blackbox));
+  bbxshared->blackbox_Assign  = countedref_AssignShared;
+  bbxshared->blackbox_destroy = countedref_destroyShared;
+  setBlackboxStuff(bbxshared, "shared");
 }
 
 extern "C" { void mod_init() { countedref_init(); } }
