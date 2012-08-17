@@ -79,10 +79,23 @@ class LeftvShallow {
 
 public:
   LeftvShallow(): m_data((leftv)omAlloc0(sizeof(sleftv))) { }
-  LeftvShallow(leftv data): m_data( (leftv)memcpy(omAlloc0(sizeof(sleftv)), data,sizeof(sleftv)  )) {  copy(&m_data->e, data->e); }
-  LeftvShallow(const self& rhs): m_data((leftv)memcpy(omAlloc0(sizeof(sleftv)), rhs.m_data,sizeof(sleftv))) { copy(&m_data->e, rhs.m_data->e); }
+  LeftvShallow(leftv data): m_data((leftv)omAlloc0(sizeof(sleftv))) { init(m_data, data); }
+  LeftvShallow(const self& rhs):
+    m_data( (leftv)omAlloc0(sizeof(sleftv))  ) {  init(m_data, rhs.m_data); }
 
-  ~LeftvShallow() { omFree(m_data); kill(m_data->e); }
+  ~LeftvShallow() {  
+    kill(m_data->e);
+    omFree(m_data);
+  }
+  self& operator=(leftv rhs) {
+    kill(m_data->e);
+    init(m_data, rhs);
+    return *this;
+  }
+
+  self& operator=(const self& rhs) {
+    return (*this) = rhs.m_data;
+  }
 
   BOOLEAN get(leftv result) {
     if (broken())
@@ -91,8 +104,7 @@ public:
     leftv next = result->next;
     result->next = NULL;
     result->CleanUp();
-    memcpy(result, m_data, sizeof(sleftv));
-    copy(&result->e, m_data->e);
+    init(result, m_data);
     result->next = next;
     return FALSE;
   }
@@ -123,6 +135,15 @@ private:
     return TRUE;
   }
 
+  static void init(leftv destination, leftv data) {
+    copy(destination, data);
+    copy(&(destination->e), data->e);
+  }
+
+  static void copy(leftv destination, leftv data) {
+    (leftv)memcpy(destination, data, sizeof(sleftv));
+  }
+
   static void copy(Subexpr* result, Subexpr rhs) {
     for (Subexpr* current = result; rhs != NULL; 
          current = &(*current)->next, rhs = rhs->next)
@@ -135,8 +156,46 @@ private:
       omFree(rhs);
     }
   }
-
+protected:
   leftv m_data;
+};
+
+
+class LeftvDeep:
+  public LeftvShallow {
+  typedef LeftvDeep self;
+  typedef LeftvShallow base;
+
+public:
+  LeftvDeep(): base() {}
+  LeftvDeep(leftv data): base(data) {
+    assign(data);
+ //    operator=(data);
+//if(data->rtyp != IDHDL)
+  //   m_data->Copy(data);
+  }
+  LeftvDeep(const self& rhs): base(rhs) {
+   assign(rhs.m_data);
+//    operator=(rhs);
+//    if(m_data->rtyp != IDHDL)
+  //    m_data->Copy(rhs.m_data);
+  }
+
+  ~LeftvDeep() { m_data->CleanUp(); }
+
+  self& operator=(const self& rhs) {
+    return operator=(rhs.m_data);
+  }
+  self& operator=(leftv rhs) {
+    m_data->CleanUp();
+    return assign(rhs);
+  }
+  self& assign(leftv rhs) {
+    if(m_data->rtyp == IDHDL)
+      return static_cast<self&>(base::operator=(rhs));
+    m_data->Copy(rhs);
+    return *this;
+  }
 };
 
 
@@ -188,9 +247,6 @@ class CountedRefData:
   typedef CountedRefData self;
   typedef RefCounter base;
 
-  /// Forbit copy construction and normal assignment
-  self& operator=(const self&);
-
 
 public:
   CountedRefData(): base(), m_data(), m_ring() {}
@@ -208,13 +264,19 @@ public:
   /// Destruct
   ~CountedRefData()  {
   }
-  /*
+ 
   self& operator=(const self& rhs) {
     m_data = rhs.m_data;
     m_ring = rhs.m_ring;
     return *this;
   }
-  */
+ 
+  self& operator=(leftv rhs) {
+    m_data = rhs;
+    m_ring = ((rhs->rtyp != IDHDL) && rhs->RingDependend()? currRing: NULL);
+    return *this;
+  }
+
   BOOLEAN get(leftv result) {
     if (m_ring && (m_ring != currRing)) {
       Werror("Can only use references from current ring.");
@@ -236,7 +298,7 @@ public:
 private:
 
   /// Singular object
-  LeftvShallow m_data;
+  LeftvDeep m_data;
 
   /// Store ring for ring-dependent objects
   CountedRefRing m_ring;
@@ -394,8 +456,12 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
   /// Case: replace assignment behind reference
   if ((result->Data()) != NULL) {
     if (CountedRef::resolve(arg)) return TRUE;
-    static_cast<CountedRefData*>(result->Data())->access()->CleanUp();
-    static_cast<CountedRefData*>(result->Data())->access()->Copy(arg);
+    //printf("rt %s\n",Tok2Cmdname(static_cast<CountedRefData*>(result->Data())->access()->rtyp ));
+    (*static_cast<CountedRefData*>(result->Data())) = arg;
+    //  static_cast<CountedRefData*>(result->Data())->access()->CleanUp();
+    // static_cast<CountedRefData*>(result->Data())->access()->Copy(arg);
+
+
     return (static_cast<CountedRefData*>(result->Data())->access()->rtyp==NONE?
             TRUE: FALSE);
   }
