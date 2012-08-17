@@ -134,7 +134,7 @@ private:
       if (current == handle) return FALSE;
     return TRUE;
   }
-
+protected:
   static void init(leftv destination, leftv data) {
     copy(destination, data);
     copy(&(destination->e), data->e);
@@ -168,18 +168,8 @@ class LeftvDeep:
 
 public:
   LeftvDeep(): base() {}
-  LeftvDeep(leftv data): base(data) {
-    assign(data);
- //    operator=(data);
-//if(data->rtyp != IDHDL)
-  //   m_data->Copy(data);
-  }
-  LeftvDeep(const self& rhs): base(rhs) {
-   assign(rhs.m_data);
-//    operator=(rhs);
-//    if(m_data->rtyp != IDHDL)
-  //    m_data->Copy(rhs.m_data);
-  }
+  LeftvDeep(leftv data): base() {  assign(data->rtyp, data); }
+  LeftvDeep(const self& rhs): base() { assign(rhs.m_data->rtyp, rhs.m_data); }
 
   ~LeftvDeep() { m_data->CleanUp(); }
 
@@ -188,12 +178,13 @@ public:
   }
   self& operator=(leftv rhs) {
     m_data->CleanUp();
-    return assign(rhs);
+    return assign(m_data->rtyp, rhs);
   }
-  self& assign(leftv rhs) {
-    if(m_data->rtyp == IDHDL)
-      return static_cast<self&>(base::operator=(rhs));
-    m_data->Copy(rhs);
+  self& assign(int typ, leftv rhs) {
+    if(typ == IDHDL)
+      init(m_data, rhs);
+    else
+      m_data->Copy(rhs);
     return *this;
   }
 };
