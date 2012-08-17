@@ -139,6 +139,45 @@ private:
   leftv m_data;
 };
 
+
+class CountedRefRing {
+  typedef CountedRefRing self;
+public:
+  /// Default constructor
+  CountedRefRing(): m_ring(NULL) {}
+
+  /// Construct from given ring
+  template <class Type>
+  CountedRefRing(const Type& rhs): m_ring(rhs) { reclaim(); }
+
+  /// Destructor
+  ~CountedRefRing() { release(); }
+
+  /// Automatically converting to @c ring
+  operator ring() { return m_ring; }
+
+  /// Pointer-stylishly cccessing @c ring
+  ring operator->() { return *this; }
+
+  /// Assign other ring
+  template <class Type>
+  self& operator=(const Type& rhs) {
+    release();
+    m_ring = rhs;
+    reclaim();
+    return *this;
+  }
+
+private:
+  /// Clip taken ring
+  void reclaim() { if (m_ring) ++m_ring->ref; }
+  /// Relieve taken ring
+  void release() { if(m_ring && --m_ring->ref) rKill(m_ring); }
+
+  /// Store pointer of taken ring
+  ring m_ring;
+};
+
 /** @class CountedRefData
  * This class stores a reference counter as well as a Singular interpreter object.
  *
@@ -150,24 +189,32 @@ class CountedRefData:
   typedef RefCounter base;
 
   /// Forbit copy construction and normal assignment
-  CountedRefData(const self&);
   self& operator=(const self&);
 
+
 public:
-   CountedRefData(): base(), m_data(), m_ring(NULL) {}
+  CountedRefData(): base(), m_data(), m_ring() {}
 
 
   /// Construct reference for Singular object
-  CountedRefData(leftv data): base(), m_data(data), m_ring(NULL) {
-    if ( (data->rtyp!=IDHDL) && data->RingDependend()  && (currRing != NULL) ) {
-      m_ring = currRing;
-      ++m_ring->ref;
-    }
+  CountedRefData(leftv data): 
+    base(), m_data(data), 
+    m_ring((data->rtyp != IDHDL) && data->RingDependend()? currRing: NULL) {
   }
-
-  /// Destructor
-  ~CountedRefData()  { m_data->CleanUp(); }
-
+  /// Construct deep copy
+  CountedRefData(const self& rhs):
+    base(), m_data(rhs.m_data), m_ring(rhs.m_ring) { }
+  
+  /// Destruct
+  ~CountedRefData()  {
+  }
+  /*
+  self& operator=(const self& rhs) {
+    m_data = rhs.m_data;
+    m_ring = rhs.m_ring;
+    return *this;
+  }
+  */
   BOOLEAN get(leftv result) {
     if (m_ring && (m_ring != currRing)) {
       Werror("Can only use references from current ring.");
@@ -181,7 +228,7 @@ public:
       Werror("Can only use references from current ring.");
       return LeftvShallow();
     }
-    return LeftvShallow(m_data);
+    return m_data;
   }
 
   /// Dangerours!
@@ -192,7 +239,7 @@ private:
   LeftvShallow m_data;
 
   /// Store ring for ring-dependent objects
-  ring m_ring;
+  CountedRefRing m_ring;
 };
 
 /// blackbox support - initialization
