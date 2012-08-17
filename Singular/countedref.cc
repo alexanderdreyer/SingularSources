@@ -38,6 +38,13 @@ class CountedRefEnv {
 
 
 };
+idhdl* getmyroot() {
+  static idhdl myroot = NULL;
+  if (myroot == NULL) {
+    myroot = enterid(" _shared_data_ ", 0, PACKAGE_CMD, &IDROOT, TRUE);
+  }
+  return &myroot;
+}
 
 class RefCounter {
   typedef RefCounter self;
@@ -71,25 +78,51 @@ class LeftvShallow {
   typedef LeftvShallow self;
 
 public:
-  LeftvShallow(leftv data): m_data(*data) {  copy(&m_data.e, data->e); }
-  LeftvShallow(const self& rhs): m_data(rhs.m_data) { copy(&m_data.e, rhs.m_data.e); }
+  LeftvShallow(): m_data((leftv)omAlloc0(sizeof(sleftv))) { }
+  LeftvShallow(leftv data): m_data( (leftv)memcpy(omAlloc0(sizeof(sleftv)), data,sizeof(sleftv)  )) {  copy(&m_data->e, data->e); }
+  LeftvShallow(const self& rhs): m_data((leftv)memcpy(omAlloc0(sizeof(sleftv)), rhs.m_data,sizeof(sleftv))) { copy(&m_data->e, rhs.m_data->e); }
 
-  ~LeftvShallow() {  kill(m_data.e); }
+  ~LeftvShallow() { omFree(m_data); kill(m_data->e); }
 
   BOOLEAN get(leftv result) {
+    if (broken())
+      return TRUE;      
+
     leftv next = result->next;
     result->next = NULL;
     result->CleanUp();
-    memcpy(result, &m_data, sizeof(m_data));
-    copy(&result->e, m_data.e);
+    memcpy(result, m_data, sizeof(sleftv));
+    copy(&result->e, m_data->e);
     result->next = next;
     return FALSE;
   }
 
-  /// Read-only access to object
-  const leftv operator->() { return &m_data; }
+  /// Access to object
+  leftv operator->() {
+    broken();
+    return m_data;
+  }
 
 private:
+  /// In case of identifier, ensure that the handle was not killed yet
+  /// @note: This may fail, if m_data.data were completely deallocated.
+  /// But this should not occur
+  BOOLEAN broken() const {
+    if((m_data->rtyp ==IDHDL) && brokenid(getmyroot()) && brokenid(&IDROOT) && 
+       brokenid(&currRing->idroot) ) {
+      Werror("Referenced identifier not available in current context");
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  BOOLEAN brokenid(idhdl*root) const {
+    idhdl handle = (idhdl) m_data->data;
+    for(idhdl current = *root; current != NULL; current = IDNEXT(current))
+      if (current == handle) return FALSE;
+    return TRUE;
+  }
+
   static void copy(Subexpr* result, Subexpr rhs) {
     for (Subexpr* current = result; rhs != NULL; 
          current = &(*current)->next, rhs = rhs->next)
@@ -102,7 +135,8 @@ private:
       omFree(rhs);
     }
   }
-  sleftv m_data;
+
+  leftv m_data;
 };
 
 /** @class CountedRefData
@@ -120,37 +154,38 @@ class CountedRefData:
   self& operator=(const self&);
 
 public:
+   CountedRefData(): base(), m_data(), m_ring(NULL) {}
+
+
   /// Construct reference for Singular object
   CountedRefData(leftv data): base(), m_data(data), m_ring(NULL) {
-    if (RingDependend(data->Typ())  && (currRing != NULL) ) {
+    if ( (data->rtyp!=IDHDL) && data->RingDependend()  && (currRing != NULL) ) {
       m_ring = currRing;
       ++m_ring->ref;
     }
-
   }
 
-  static idhdl* id_root;
-
   /// Destructor
-  ~CountedRefData()  { }
+  ~CountedRefData()  { m_data->CleanUp(); }
 
   BOOLEAN get(leftv result) {
     if (m_ring && (m_ring != currRing)) {
       Werror("Can only use references from current ring.");
       return TRUE;
     }
-    // dereferencing only makes sense, if something else points here, too.
-    assume(count() > 1);
     return m_data.get(result);
   }
 
   LeftvShallow get() {
-    if (m_ring && (m_ring != currRing))
+    if (m_ring && (m_ring != currRing)) {
       Werror("Can only use references from current ring.");
-  
+      return LeftvShallow();
+    }
     return LeftvShallow(m_data);
   }
 
+  /// Dangerours!
+  leftv access() { return m_data.operator->(); }
 private:
 
   /// Singular object
@@ -309,32 +344,50 @@ void countedref_destroy(blackbox *b, void* ptr)
 /// blackbox support - assign element
 BOOLEAN countedref_AssignShared(leftv result, leftv arg)
 {
-  // Case: replace assignment behind reference
-  if (result->Data() != NULL)
-    return CountedRef::dereference(result) || CountedRef::resolve(arg) ||
-      iiAssign(result, arg);
-  
-  
-  if(CountedRef::resolve(arg))
-    return TRUE;
+  /// Case: replace assignment behind reference
+  if ((result->Data()) != NULL) {
+    if (CountedRef::resolve(arg)) return TRUE;
+    static_cast<CountedRefData*>(result->Data())->access()->CleanUp();
+    static_cast<CountedRefData*>(result->Data())->access()->Copy(arg);
+    return (static_cast<CountedRefData*>(result->Data())->access()->rtyp==NONE?
+            TRUE: FALSE);
+  }
 
-  char* name=(char*)omAlloc0(512);
-  static unsigned long counter = 0;
-  do {
-    sprintf(name, "_shareddata_%s_%s_%d\0", result->Name(), arg->Name(), ++counter);
+
+  /// Case: new
+  int rt = arg->Typ();
+  blackbox *bbx = (rt > MAX_TOK? getBlackboxStuff(rt): NULL);
+
+  if( (rt == LIST_CMD) || (rt==MATRIX_CMD) || (rt==INTMAT_CMD)
+      || (rt==BIGINTMAT_CMD) || (rt==INTVEC_CMD) ||(rt==MODUL_CMD)
+      || (rt==RESOLUTION_CMD) || ((bbx != NULL) && BB_LIKE_LIST(bbx))  ) {
+
+    char* name = (char*)omAlloc0(512);
+
+    unsigned int counter = 0;
+    idhdl* myroot=getmyroot();
+    char* data = (char*)arg->CopyD();
+    do {
+      sprintf(name, ":%s:%s:%p:%u:\0", result->Name(), arg->Name(),
+              data, ++counter);
+    } while(((*myroot)->get(name, myynest) !=NULL) && (counter < 100) );
+
+    if (counter >= 100) {
+      Werror("No temporary identifier for shared data found.");
+      omFree(name);
+      return TRUE;
+    }
+
+    idhdl handle = enterid(name, 0, rt, myroot, FALSE);
+    ++(*myroot)->ref;
+
+    IDDATA(handle) = data;
+    
+    arg->CleanUp();
+    arg->data = handle;
+    arg->rtyp = IDHDL;
+    arg->name = name;
   }
-  while(ggetid(name));
-  idhdl handle = enterid(name, 0, arg->Typ(), &IDROOT, FALSE);
-  omFree(name);
-  if (handle==NULL) {
-    Werror("Initializing shared failed");
-    return TRUE;
-  }
-  
-  IDDATA(handle) = (char*)arg->CopyD();
-  arg->data = handle;
-  arg->rtyp = IDHDL;
-  
   return CountedRef::construct(result, arg);
 }
 
@@ -344,14 +397,20 @@ void countedref_destroyShared(blackbox *b, void* ptr)
   CountedRefData* data = static_cast<CountedRefData*>(ptr);
 
   if(data && !data->release()) {
-    leftv tmp = (leftv) omAlloc0(sizeof(*tmp));
-    data->get(tmp);
-    killid(IDID((idhdl)(tmp->data)), &IDROOT);
+    if (data->access()->rtyp == IDHDL) // We made the identifier, so we clean up
+    {
+      idhdl* myroot = getmyroot();
+      killhdl2((idhdl)(data->access()->data), myroot, currRing);
+      assume(*myroot != NULL);
+      if(--((*myroot)->ref)) {
+          killhdl2(*myroot, &IDROOT, currRing);
+          (*myroot) = NULL;
+        }
+      
+    }
     delete data;
   }
-
 }
-
 void countedref_init() 
 {
   blackbox *bbx = (blackbox*)omAlloc0(sizeof(blackbox));
@@ -368,10 +427,13 @@ void countedref_init()
   bbx->data             = omAlloc0(newstruct_desc_size());
   setBlackboxStuff(bbx, "reference");
 
+  /// The @c shared type is "inherited" from @c reference.
+  /// It just uses another constructor (to make its own copy of the).
   blackbox *bbxshared = 
     (blackbox*)memcpy(omAlloc(sizeof(blackbox)), bbx, sizeof(blackbox));
   bbxshared->blackbox_Assign  = countedref_AssignShared;
-  bbxshared->blackbox_destroy = countedref_destroyShared;
+  bbxshared->blackbox_destroy  = countedref_destroyShared;
+
   setBlackboxStuff(bbxshared, "shared");
 }
 
