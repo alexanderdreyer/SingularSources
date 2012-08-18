@@ -76,19 +76,20 @@ private:
 
 class LeftvShallow {
   typedef LeftvShallow self;
-
+  
 public:
-  LeftvShallow(): m_data((leftv)omAlloc0(sizeof(sleftv))) { }
-  LeftvShallow(leftv data): m_data((leftv)omAlloc0(sizeof(sleftv))) { init(m_data, data); }
+  LeftvShallow(): m_data(allocate()) { }
+  LeftvShallow(leftv data): 
+    m_data(allocate()) { init(m_data, data); }
   LeftvShallow(const self& rhs):
-    m_data( (leftv)omAlloc0(sizeof(sleftv))  ) {  init(m_data, rhs.m_data); }
+    m_data(allocate()) { init(m_data, rhs.m_data); }
 
   ~LeftvShallow() {  
-    kill(m_data->e);
+    kill();
     omFree(m_data);
   }
   self& operator=(leftv rhs) {
-    kill(m_data->e);
+    kill();
     init(m_data, rhs);
     return *this;
   }
@@ -128,33 +129,28 @@ private:
     return FALSE;
   }
 
-  BOOLEAN brokenid(idhdl*root) const {
+  BOOLEAN brokenid(idhdl* root) const {
     idhdl handle = (idhdl) m_data->data;
     for(idhdl current = *root; current != NULL; current = IDNEXT(current))
       if (current == handle) return FALSE;
     return TRUE;
   }
 protected:
-  static void init(leftv destination, leftv data) {
-    copy(destination, data);
-    copy(&(destination->e), data->e);
+  static leftv allocate() { return (leftv)omAlloc0(sizeof(sleftv)); }
+  static void init(leftv result, leftv data) {
+    memcpy(result, data, sizeof(sleftv));
+    copy(result->e, data->e);
   }
-
-  static void copy(leftv destination, leftv data) {
-    (leftv)memcpy(destination, data, sizeof(sleftv));
+  static void copy(Subexpr& current, Subexpr rhs)  {
+    if (rhs == NULL) return;
+    current = (Subexpr)memcpy(omAlloc0Bin(sSubexpr_bin), rhs, sizeof(*rhs));
+    copy(current->next, rhs->next);
   }
-
-  static void copy(Subexpr* result, Subexpr rhs) {
-    for (Subexpr* current = result; rhs != NULL; 
-         current = &(*current)->next, rhs = rhs->next)
-      *current = (Subexpr)memcpy(omAlloc0Bin(sSubexpr_bin), rhs, sizeof(*rhs));
-  }
-
-  static void kill(Subexpr rhs) {
-    for (Subexpr next; rhs!=NULL; rhs = next, next = rhs->next) {
-      next = rhs->next;
-      omFree(rhs);
-    }
+  void kill() { kill(m_data->e); }
+  static void kill(Subexpr current) {
+    if(current == NULL) return;
+    kill(current->next);
+    omFree(current);
   }
 protected:
   leftv m_data;
@@ -168,8 +164,8 @@ class LeftvDeep:
 
 public:
   LeftvDeep(): base() {}
-  LeftvDeep(leftv data): base() {  assign(data->rtyp, data); }
-  LeftvDeep(const self& rhs): base() { assign(rhs.m_data->rtyp, rhs.m_data); }
+  LeftvDeep(leftv data): base() {  init(data); }
+  LeftvDeep(const self& rhs): base() { init(rhs.m_data); }
 
   ~LeftvDeep() { m_data->CleanUp(); }
 
@@ -178,14 +174,15 @@ public:
   }
   self& operator=(leftv rhs) {
     m_data->CleanUp();
-    return assign(m_data->rtyp, rhs);
+    m_data->Copy(rhs);
+    return *this;
   }
-  self& assign(int typ, leftv rhs) {
-    if(typ == IDHDL)
-      init(m_data, rhs);
+private:  
+  void init(leftv rhs) {
+    if(rhs->rtyp == IDHDL)
+      base::init(m_data, rhs);
     else
       m_data->Copy(rhs);
-    return *this;
   }
 };
 
@@ -218,11 +215,22 @@ public:
     return *this;
   }
 
+  /// 
+  BOOLEAN deactivated() const {
+    return (m_ring != NULL) && (m_ring != currRing) && complain();
+  }
+
 private:
   /// Clip taken ring
   void reclaim() { if (m_ring) ++m_ring->ref; }
   /// Relieve taken ring
   void release() { if(m_ring && --m_ring->ref) rKill(m_ring); }
+
+  /// Raise error if this is not the current ring
+  static BOOLEAN complain() {
+     Werror("Can only use references from current ring.");
+     return TRUE;
+  }
 
   /// Store pointer of taken ring
   ring m_ring;
@@ -332,9 +340,8 @@ public:
 
   /// Kills the link to the referenced object
   static void destruct(data_type* data) {
-    if(data && !data->release()) {
+    if(data && !data->release())
       delete data;
-    }
   }
 
   /// Get the actual object
@@ -343,10 +350,9 @@ public:
     assume((arg != NULL) && is_ref(arg->Typ()));
     do {
       assume(arg->Data() != NULL);
-      data_type* data = static_cast<data_type*>(arg->Data());
-      if(data->get(arg)) return TRUE;
+      if(static_cast<data_type*>(arg->Data())->get(arg)) return TRUE;
     } while (is_ref(arg->Typ()));
-    return resolve_tail(arg);
+    return (arg->next != NULL) && resolve(arg->next);
   }
 
   /// If necessary dereference.
@@ -354,16 +360,7 @@ public:
   static BOOLEAN resolve(leftv arg) {
     assume(arg != NULL);
     while (is_ref(arg->Typ())) { if(dereference(arg)) return TRUE; };
-    return resolve_tail(arg);
-  }
-
-private:
-  /// Dereference (is needed) subsequent objects of sequences
-  static BOOLEAN resolve_tail(leftv arg) {
-    for(leftv next = arg->next; next != NULL; next = next->next)
-      if(resolve(next))
-        return TRUE;
-    return FALSE;
+    return (arg->next != NULL) && resolve(arg->next);
   }
 };
 
