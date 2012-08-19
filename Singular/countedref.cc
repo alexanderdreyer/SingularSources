@@ -57,7 +57,7 @@ public:
   RefCounter(): m_count(0) {}
 
   /// Copying resets the counter
-  RefCounter(const self& rhs): m_count(0) {}
+  RefCounter(const self&): m_count(0) {}
 
   /// Destructor
   ~RefCounter() { assume(m_count == 0); }
@@ -111,11 +111,11 @@ public:
   }
 
   /// Access to object
-  leftv operator->() {
+  leftv operator->() { return *this; }
+  operator leftv() { 
     broken();
     return m_data;
   }
-
 private:
   /// In case of identifier, ensure that the handle was not killed yet
   /// @note: This may fail, if m_data.data were completely deallocated.
@@ -215,7 +215,7 @@ public:
     return *this;
   }
 
-  /// 
+  /// Determines this is not the current ring
   BOOLEAN deactivated() const {
     return (m_ring != NULL) && (m_ring != currRing) && complain();
   }
@@ -225,7 +225,6 @@ private:
   void reclaim() { if (m_ring) ++m_ring->ref; }
   /// Relieve taken ring
   void release() { if(m_ring && --m_ring->ref) rKill(m_ring); }
-
   /// Raise error if this is not the current ring
   static BOOLEAN complain() {
      Werror("Can only use references from current ring.");
@@ -246,55 +245,49 @@ class CountedRefData:
   typedef CountedRefData self;
   typedef RefCounter base;
 
-
 public:
+  /// Default constructor
   CountedRefData(): base(), m_data(), m_ring() {}
-
 
   /// Construct reference for Singular object
   CountedRefData(leftv data): 
-    base(), m_data(data), 
-    m_ring((data->rtyp != IDHDL) && data->RingDependend()? currRing: NULL) {
-  }
+    base(), m_data(data), m_ring(parent(data)) { }
+
   /// Construct deep copy
   CountedRefData(const self& rhs):
     base(), m_data(rhs.m_data), m_ring(rhs.m_ring) { }
   
   /// Destruct
-  ~CountedRefData()  {
-  }
- 
+  ~CountedRefData()  { }
+
+  /// Replace data
   self& operator=(const self& rhs) {
     m_data = rhs.m_data;
     m_ring = rhs.m_ring;
     return *this;
   }
  
+  /// Replace with other Singular data
   self& operator=(leftv rhs) {
     m_data = rhs;
-    m_ring = ((rhs->rtyp != IDHDL) && rhs->RingDependend()? currRing: NULL);
+    m_ring = parent(rhs);
     return *this;
   }
 
-  BOOLEAN get(leftv result) {
-    if (m_ring && (m_ring != currRing)) {
-      Werror("Can only use references from current ring.");
-      return TRUE;
-    }
-    return m_data.get(result);
-  }
+  /// Write (shallow) copy to given handle
+  BOOLEAN get(leftv res) { return m_ring.deactivated() || m_data.get(res); }
 
-  LeftvShallow get() {
-    if (m_ring && (m_ring != currRing)) {
-      Werror("Can only use references from current ring.");
-      return LeftvShallow();
-    }
-    return m_data;
-  }
+  /// Extract (shallow) copy of stored data
+  LeftvShallow operator*() { return (m_ring.deactivated()? LeftvShallow(): m_data); }
 
   /// Dangerours!
   leftv access() { return m_data.operator->(); }
+
 private:
+  /// Detect ring for current object
+  static ring parent(leftv data) {
+    return ((data->rtyp != IDHDL) && data->RingDependend()? currRing: NULL);
+  }
 
   /// Singular object
   LeftvDeep m_data;
@@ -326,23 +319,47 @@ public:
            (getBlackboxStuff(typ)->blackbox_Init == countedref_Init));
   }
 
-  /// Construct reference data object from 
-  static BOOLEAN construct(leftv result, leftv arg) {
-    data_type* data = (result->Typ() == arg->Typ()? 
-                       static_cast<data_type*>(arg->Data()): new data_type(arg));
-    data->reclaim();
-    if (result->rtyp == IDHDL)
-      IDDATA((idhdl)result->data) = (char *)data;
-    else
-      result->data = (void *)data;
-    return (data == NULL? TRUE: FALSE);
+  /// Construct new reference from Singular data  
+  CountedRef(leftv arg):  m_data(new data_type(arg)) { m_data->reclaim(); }
+
+  /// Recover previously constructed reference
+  CountedRef(data_type* arg):  m_data(arg) { assume(arg); m_data->reclaim(); }
+
+  /// Construct copy
+  CountedRef(const self& rhs): m_data(rhs.m_data) { m_data->reclaim(); }
+
+  /// Replace reference
+  self& operator=(const self& rhs) {
+    destruct();
+    m_data = rhs.m_data;
+    m_data->reclaim();
+    return *this;
   }
 
-  /// Kills the link to the referenced object
-  static void destruct(data_type* data) {
-    if(data && !data->release())
-      delete data;
+  /// Replace data that reference is pointing to
+  self& operator=(leftv rhs) {
+    (*m_data) = rhs;
+    return *this;
   }
+
+  /// Extract (shallow) copy of stored data
+  LeftvShallow operator*() { return m_data->operator*(); }
+
+  /// Construct reference data object from
+  BOOLEAN checkout(leftv result) {
+    m_data->reclaim();
+    if (result->rtyp == IDHDL)
+      IDDATA((idhdl)result->data) = (char *)m_data;
+    else
+      result->data = (void *)m_data;
+    return FALSE;
+  }
+
+  /// Kills a link to the referenced object
+  void destruct() { if(!m_data->release()) delete m_data; }
+
+  /// Kills the link to the referenced object
+  ~CountedRef() { destruct(); }
 
   /// Get the actual object
   /// @note It may change leftv. It is common practice, so we are fine with it.
@@ -350,7 +367,7 @@ public:
     assume((arg != NULL) && is_ref(arg->Typ()));
     do {
       assume(arg->Data() != NULL);
-      if(static_cast<data_type*>(arg->Data())->get(arg)) return TRUE;
+      if(static_cast<data_type*>(arg->Data())->get(arg)){ return TRUE; }
     } while (is_ref(arg->Typ()));
     return (arg->next != NULL) && resolve(arg->next);
   }
@@ -362,18 +379,22 @@ public:
     while (is_ref(arg->Typ())) { if(dereference(arg)) return TRUE; };
     return (arg->next != NULL) && resolve(arg->next);
   }
+
+private:
+  /// Store pointer to actual data
+  data_type* m_data;
 };
 
 /// blackbox support - convert to string representation
 void countedref_Print(blackbox *b, void* ptr)
 {
-  if (ptr != NULL) static_cast<CountedRefData*>(ptr)->get()->Print();
+  if (ptr != NULL) (*CountedRef(static_cast<CountedRefData*>(ptr)))->Print();
 }
 
 /// blackbox support - convert to string representation
 char* countedref_String(blackbox *b, void* ptr)
 {
-  if (ptr != NULL) return static_cast<CountedRefData*>(ptr)->get()->String();
+  if (ptr != NULL) return (*CountedRef(static_cast<CountedRefData*>(ptr)))->String();
 }
 
 /// blackbox support - copy element
@@ -393,8 +414,10 @@ BOOLEAN countedref_Assign(leftv result, leftv arg)
   
   // Case: new reference
   if(arg->rtyp == IDHDL) 
-    return CountedRef::construct(result, arg);
-  
+    return (result->Typ() == arg->Typ()?
+            CountedRef(static_cast<CountedRefData*>(arg->Data())):
+            CountedRef(arg)).checkout(result);
+
   Werror("Can only take reference from identifier");
   return FALSE;
 }
@@ -404,8 +427,7 @@ BOOLEAN countedref_Op1(int op, leftv res, leftv head)
 {
   if(op == TYPEOF_CMD)
     return blackboxDefaultOp1(op, res, head);
-
-  return CountedRef::dereference(head) || 
+  return  CountedRef::dereference(head) || 
     iiExprArith1(res, head, (op == DEF_CMD? head->Typ(): op));
 }
 
@@ -434,7 +456,7 @@ BOOLEAN countedref_OpM(int op, leftv res, leftv args)
 /// blackbox support - destruction
 void countedref_destroy(blackbox *b, void* ptr)
 {
-  CountedRef::destruct(static_cast<CountedRefData*>(ptr));
+  if (ptr) CountedRef(static_cast<CountedRefData*>(ptr)).destruct();
 }
 
 
@@ -444,19 +466,16 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
   /// Case: replace assignment behind reference
   if ((result->Data()) != NULL) {
     if (CountedRef::resolve(arg)) return TRUE;
-    //printf("rt %s\n",Tok2Cmdname(static_cast<CountedRefData*>(result->Data())->access()->rtyp ));
-    (*static_cast<CountedRefData*>(result->Data())) = arg;
-    //  static_cast<CountedRefData*>(result->Data())->access()->CleanUp();
-    // static_cast<CountedRefData*>(result->Data())->access()->Copy(arg);
-
-
-    return (static_cast<CountedRefData*>(result->Data())->access()->rtyp==NONE?
-            TRUE: FALSE);
+    CountedRef(static_cast<CountedRefData*>(result->Data())) = arg;
+    return FALSE;
   }
 
-
+  
   /// Case: new
   int rt = arg->Typ();
+  if (result->Typ() == rt) 
+    return CountedRef(static_cast<CountedRefData*>(arg->Data())).checkout(result);
+
   blackbox *bbx = (rt > MAX_TOK? getBlackboxStuff(rt): NULL);
 
   if( (rt == LIST_CMD) || (rt==MATRIX_CMD) || (rt==INTMAT_CMD)
@@ -489,7 +508,7 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
     arg->rtyp = IDHDL;
     arg->name = name;
   }
-  return CountedRef::construct(result, arg);
+  return CountedRef(arg).checkout(result);
 }
 
 /// blackbox support - destruction
