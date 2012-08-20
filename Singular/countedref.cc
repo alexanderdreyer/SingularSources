@@ -331,7 +331,7 @@ public:
   /// Construct new reference from Singular data  
   CountedRef(leftv arg):  m_data(new data_type(arg)) { m_data->reclaim(); }
 
-private:
+protected:
   /// Recover previously constructed reference
   CountedRef(data_type* arg):  m_data(arg) { assume(arg); m_data->reclaim(); }
 
@@ -403,7 +403,8 @@ public:
     return (arg->next != NULL) && resolve(arg->next);
   }
 
-private:
+  //private:
+protected:
   /// Store pointer to actual data
   data_type* m_data;
 };
@@ -489,21 +490,43 @@ void countedref_destroy(blackbox *b, void* ptr)
 }
 
 
-/// blackbox support - assign element
-BOOLEAN countedref_AssignShared(leftv result, leftv arg)
-{
-  /// Case: replace assignment behind reference
-  if ((result->Data()) != NULL) {
-    if (CountedRef::resolve(arg)) return TRUE;
-    CountedRef::cast(result->Data()) = arg;
-    return FALSE;
+class CountedRefShared:
+  public CountedRef {
+  typedef CountedRefShared self;
+  typedef CountedRef base;
+public:
+  /// Construct new reference from Singular data  
+  CountedRefShared(leftv arg):  base(init(arg)) { }
+
+private:
+  /// Recover previously constructed shared data
+  CountedRefShared(data_type* arg):  base(arg) { }
+  CountedRefShared(const base& rhs):  base(rhs) { }
+public:
+  /// Construct copy
+  CountedRefShared(const self& rhs): base(rhs) { }
+
+
+  /// Replace shared data
+                  /*  self& operator=(const self& rhs) {
+    kill(base::operator*().operator->()));
+    base::operator=(rhs);
+    return *this;
+  }
+                  */
+  /// Replace data that reference is pointing to
+  self& operator=(leftv rhs) {
+    kill(base::operator*());
+    base::operator=(init(rhs));
+    return *this;
   }
 
-  
-  /// Case: new
+
+  static self cast(leftv arg) { return base::cast(arg); }
+
+private:
+  leftv init(leftv arg) {
   int rt = arg->Typ();
-  if (result->Typ() == rt) 
-    return CountedRef::cast(arg).outcast(result);
 
   blackbox *bbx = (rt > MAX_TOK? getBlackboxStuff(rt): NULL);
 
@@ -517,14 +540,14 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
     idhdl* myroot=getmyroot();
 
     do {
-      sprintf(name, ":%s:%s:%p:%u:", result->Name(), arg->Name(),
+      sprintf(name, ":%s:%s:%p:%u:", "TODO", arg->Name(),
               arg->Data(), ++counter);
     } while(((*myroot)->get(name, myynest) !=NULL) && (counter < 100) );
 
     if (counter >= 100) {
       Werror("No temporary identifier for shared data found.");
       omFree(name);
-      return TRUE;
+      //      return TRUE;
     }
 
     idhdl handle = enterid(name, 0, rt, myroot, FALSE);
@@ -536,7 +559,42 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
     arg->rtyp = IDHDL;
     arg->name = name;
   }
-  return CountedRef(arg).outcast(result);
+  return arg;
+  }
+
+ void kill(LeftvShallow data) {
+    if (data->rtyp == IDHDL) // We made the identifier, so we clean up
+    {
+      idhdl* myroot = getmyroot();
+      killhdl2((idhdl)(data->data), myroot, currRing);
+      data->data = NULL;
+      data->rtyp = NONE;
+      assume(*myroot != NULL);
+      if(--((*myroot)->ref)) {
+        killhdl2(*myroot, &IDROOT, currRing);
+        (*myroot) = NULL;
+      }
+    }
+ }
+};
+
+
+/// blackbox support - assign element
+BOOLEAN countedref_AssignShared(leftv result, leftv arg)
+{
+  /// Case: replace assignment behind reference
+  if ((result->Data()) != NULL) {
+    if (CountedRefShared::resolve(arg)) return TRUE;
+    CountedRefShared::cast(result) = arg;
+    return FALSE;
+  }
+
+  
+  /// Case: new shared data
+  if (result->Typ() == arg->Typ()) 
+    return CountedRefShared::cast(arg).outcast(result);
+
+  return CountedRefShared(arg).outcast(result);
 }
 
 /// blackbox support - destruction
