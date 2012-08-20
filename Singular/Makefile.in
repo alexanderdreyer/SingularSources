@@ -495,7 +495,7 @@ pyobject.${MODULE_SUFFIX}: pyobject.dl_o
 	$(CXX) $^ ${PYTHON_MODULE_LDFLAGS} ${SLDFLAGS} ${PYTHON_MODULE_LIBS} ${LD_LIBC} -o $@
 
 # dynamic module for counted references object support
-countedref.${MODULE_SUFFIX}: countedref.dl_o
+countedref.${MODULE_SUFFIX}: countedref.dl_og
 	@echo "build dynamic module countedref..."
 	$(LD) -g ${SLDFLAGS} -o $@ $^ ${GLIBC_DYN_FIX}
 
