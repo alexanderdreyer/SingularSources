@@ -111,11 +111,11 @@ public:
   }
 
   /// Access to object
-  leftv operator->() { return *this; }
-  operator leftv() { 
+  leftv operator->() { 
     broken();
     return m_data;
   }
+
 private:
   /// In case of identifier, ensure that the handle was not killed yet
   /// @note: This may fail, if m_data.data were completely deallocated.
@@ -226,7 +226,7 @@ private:
   /// Relieve taken ring
   void release() { if(m_ring && --m_ring->ref) rKill(m_ring); }
   /// Raise error if this is not the current ring
-  static BOOLEAN complain() {
+   BOOLEAN complain() const {
      Werror("Can only use references from current ring.");
      return TRUE;
   }
@@ -275,7 +275,12 @@ public:
   }
 
   /// Write (shallow) copy to given handle
-  BOOLEAN get(leftv res) { return m_ring.deactivated() || m_data.get(res); }
+  BOOLEAN get(leftv res) { 
+    reclaim();
+    BOOLEAN b= m_ring.deactivated() || m_data.get(res); 
+    release();
+    return b;
+  }
 
   /// Extract (shallow) copy of stored data
   LeftvShallow operator*() { return (m_ring.deactivated()? LeftvShallow(): m_data); }
@@ -388,13 +393,16 @@ private:
 /// blackbox support - convert to string representation
 void countedref_Print(blackbox *b, void* ptr)
 {
-  if (ptr != NULL) (*CountedRef(static_cast<CountedRefData*>(ptr)))->Print();
+  if (ptr == NULL)  return;
+  (*CountedRef(static_cast<CountedRefData*>(ptr)))->Print();
 }
 
 /// blackbox support - convert to string representation
 char* countedref_String(blackbox *b, void* ptr)
 {
-  if (ptr != NULL) return (*CountedRef(static_cast<CountedRefData*>(ptr)))->String();
+  if (ptr == NULL) return NULL;
+  
+  return (*CountedRef(static_cast<CountedRefData*>(ptr)))->String();
 }
 
 /// blackbox support - copy element
@@ -486,10 +494,10 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
 
     unsigned int counter = 0;
     idhdl* myroot=getmyroot();
-    char* data = (char*)arg->CopyD();
+
     do {
-      sprintf(name, ":%s:%s:%p:%u:\0", result->Name(), arg->Name(),
-              data, ++counter);
+      sprintf(name, ":%s:%s:%p:%u:", result->Name(), arg->Name(),
+              arg->Data(), ++counter);
     } while(((*myroot)->get(name, myynest) !=NULL) && (counter < 100) );
 
     if (counter >= 100) {
@@ -501,8 +509,7 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
     idhdl handle = enterid(name, 0, rt, myroot, FALSE);
     ++(*myroot)->ref;
 
-    IDDATA(handle) = data;
-    
+    IDDATA(handle) = (char*)arg->CopyD();
     arg->CleanUp();
     arg->data = handle;
     arg->rtyp = IDHDL;
