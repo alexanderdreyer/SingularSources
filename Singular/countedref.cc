@@ -99,8 +99,8 @@ public:
   }
 
   BOOLEAN get(leftv result) {
-    if (broken())
-      return TRUE;      
+    // if (broken())
+    //      return TRUE;      
 
     leftv next = result->next;
     result->next = NULL;
@@ -112,7 +112,8 @@ public:
 
   /// Access to object
   leftv operator->() { 
-    broken();
+    //   broken();
+    //    Warn("  Typ? %d %d %s", m_data->rtyp, m_data->Typ(), Tok2Cmdname(m_data->Typ()));
     return m_data;
   }
 
@@ -250,15 +251,15 @@ class CountedRefData:
 
 public:
   /// Default constructor
-  CountedRefData(): base(), m_data(), m_ring() {}
+  CountedRefData(): base(), m_data(), m_context(NULL) {}
 
   /// Construct reference for Singular object
-  CountedRefData(leftv data): 
-    base(), m_data(data), m_ring(parent(data)) { }
+  CountedRefData(leftv data, idhdl* ctx = &IDROOT):
+    base(), m_data(data), m_context(context(data, ctx)) { }
 
   /// Construct deep copy
   CountedRefData(const self& rhs):
-    base(), m_data(rhs.m_data), m_ring(rhs.m_ring) { }
+    base(), m_data(rhs.m_data), m_context(rhs.m_context) { }
   
   /// Destruct
   ~CountedRefData()  { }
@@ -266,42 +267,74 @@ public:
   /// Replace data
   self& operator=(const self& rhs) {
     m_data = rhs.m_data;
-    m_ring = rhs.m_ring;
+    m_context = rhs.m_context;
     return *this;
   }
  
   /// Replace with other Singular data
-  self& operator=(leftv rhs) {
+  void set(leftv rhs, idhdl* ctx = &IDROOT) {
     m_data = rhs;
-    m_ring = parent(rhs);
-    return *this;
+    m_context = context(rhs, ctx);
   }
 
   /// Write (shallow) copy to given handle
-  BOOLEAN get(leftv res) { 
+  BOOLEAN get(leftv res) {
     reclaim();
-    BOOLEAN b= m_ring.deactivated() || m_data.get(res); 
+    BOOLEAN b = broken() || m_data.get(res); 
     release();
     return b;
   }
 
   /// Extract (shallow) copy of stored data
-  LeftvShallow operator*() { return (m_ring.deactivated()? LeftvShallow(): m_data); }
+  LeftvShallow operator*() { return (broken(false)? LeftvShallow(): m_data); }
 
   /// Dangerours!
   leftv access() { return m_data.operator->(); }
 
+
 private:
-  /// Detect ring for current object
-  static ring parent(leftv data) {
-    return ((data->rtyp != IDHDL) && data->RingDependend()? currRing: NULL);
+  BOOLEAN broken(bool silent=false) {
+
+    //    Warn("m_context, getmyroot(), &currRing->idroot %p %p %p  \n",  m_context, getmyroot(), &currRing->idroot);
+    if( (m_context == getmyroot()) || (m_context == &currRing->idroot))
+      return FALSE;             // the good, 
+
+    if (m_data->RingDependend()) // the bad,
+      return complain("Referenced identifier not available in current ring",silent);
+
+    //    Warn("broken? %d %d %d", brokenid(m_context),
+    //     m_context != &basePack->idroot, brokenid(&basePack->idroot) );
+    
+    return (brokenid(m_context) &&   // and the ugly (case)
+            ((m_context == &basePack->idroot) || brokenid(&basePack->idroot))) &&
+      complain("Referenced identifier not found in current context", silent);
   }
+
+  /// Detect context for current object
+  static idhdl* context(leftv data, idhdl* ctx) {
+    if (data->RingDependend())
+      return &currRing->idroot;
+    return ctx;
+  }
+
+  BOOLEAN complain(const char* text, bool silent) {
+    if(!silent)
+      Werror(text);
+    return TRUE;
+  }
+  BOOLEAN brokenid(idhdl* root) {
+    idhdl handle = (idhdl) m_data->data;
+    for(idhdl current = *root; current != NULL; current = IDNEXT(current))
+      if (current == handle) return FALSE;
+    return TRUE;
+  }
+
 
   /// Singular object
   LeftvDeep m_data;
 
-  /// Store ring for ring-dependent objects
-  CountedRefRing m_ring;
+  /// Store namespace for ring-dependent objects
+  idhdl* m_context;
 };
 
 /// blackbox support - initialization
@@ -349,7 +382,7 @@ public:
 
   /// Replace data that reference is pointing to
   self& operator=(leftv rhs) {
-    (*m_data) = rhs;
+    m_data->set(rhs);
     return *this;
   }
 
@@ -496,7 +529,7 @@ class CountedRefShared:
   typedef CountedRef base;
 public:
   /// Construct new reference from Singular data  
-  CountedRefShared(leftv arg):  base(init(arg)) { }
+  CountedRefShared(leftv arg):  base(new data_type(wrap(arg), getmyroot())) { }
 
 private:
   /// Recover previously constructed shared data
@@ -506,75 +539,61 @@ public:
   /// Construct copy
   CountedRefShared(const self& rhs): base(rhs) { }
 
+  ~CountedRefShared() {  kill(); }
 
-  /// Replace shared data
-                  /*  self& operator=(const self& rhs) {
-    kill(base::operator*().operator->()));
+  self& operator=(const self& rhs) {
+    kill();
     base::operator=(rhs);
     return *this;
   }
-                  */
+
   /// Replace data that reference is pointing to
   self& operator=(leftv rhs) {
-    kill(base::operator*());
-    base::operator=(init(rhs));
+    m_data->set(wrap(rhs), getmyroot());
     return *this;
   }
-
+  void destruct() {
+    kill();
+    base::destruct();
+  }
 
   static self cast(leftv arg) { return base::cast(arg); }
-
+  static self cast(void* arg) { return base::cast(arg); }
 private:
-  leftv init(leftv arg) {
-  int rt = arg->Typ();
 
-  blackbox *bbx = (rt > MAX_TOK? getBlackboxStuff(rt): NULL);
+  static leftv wrap(leftv arg) {
+      char* name = (char*)omAlloc0(512);
+      static unsigned int counter = 0;
+      idhdl* myroot=getmyroot();
+      sprintf(name, " :%u:%p:_shared_: ", ++counter, arg->Data());
+      assume((*myroot)->get(name, 0) == NULL); 
+      idhdl handle = (*myroot)->set(name, 0, arg->Typ(), FALSE);
+      ++(*myroot)->ref;
 
-  if( (rt == LIST_CMD) || (rt==MATRIX_CMD) || (rt==INTMAT_CMD)
-      || (rt==BIGINTMAT_CMD) || (rt==INTVEC_CMD) ||(rt==MODUL_CMD)
-      || (rt==RESOLUTION_CMD) || ((bbx != NULL) && BB_LIKE_LIST(bbx))  ) {
+      IDDATA(handle) = (char*) arg->CopyD();
+      arg->CleanUp();
+      arg->data = handle;
+      arg->rtyp = IDHDL;
+      arg->name = name;
 
-    char* name = (char*)omAlloc0(512);
-
-    unsigned int counter = 0;
-    idhdl* myroot=getmyroot();
-
-    do {
-      sprintf(name, ":%s:%s:%p:%u:", "TODO", arg->Name(),
-              arg->Data(), ++counter);
-    } while(((*myroot)->get(name, myynest) !=NULL) && (counter < 100) );
-
-    if (counter >= 100) {
-      Werror("No temporary identifier for shared data found.");
-      omFree(name);
-      //      return TRUE;
-    }
-
-    idhdl handle = enterid(name, 0, rt, myroot, FALSE);
-    ++(*myroot)->ref;
-
-    IDDATA(handle) = (char*)arg->CopyD();
-    arg->CleanUp();
-    arg->data = handle;
-    arg->rtyp = IDHDL;
-    arg->name = name;
-  }
-  return arg;
+    return arg;
   }
 
- void kill(LeftvShallow data) {
-    if (data->rtyp == IDHDL) // We made the identifier, so we clean up
-    {
-      idhdl* myroot = getmyroot();
-      killhdl2((idhdl)(data->data), myroot, currRing);
-      data->data = NULL;
-      data->rtyp = NONE;
-      assume(*myroot != NULL);
-      if(--((*myroot)->ref)) {
-        killhdl2(*myroot, &IDROOT, currRing);
-        (*myroot) = NULL;
-      }
-    }
+ void kill() {
+   if (m_data->count() > 1) return;
+
+   LeftvShallow data = base::operator*();
+   idhdl* myroot = getmyroot();
+   killhdl2((idhdl)(data->data), myroot, currRing);
+   data->data = NULL;
+   data->rtyp = NONE;
+   assume(*myroot != NULL);
+   
+   
+   if(--((*myroot)->ref)) {
+     killhdl2(*myroot, &IDROOT, currRing);
+     (*myroot) = NULL;
+   }
  }
 };
 
@@ -585,6 +604,8 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
   /// Case: replace assignment behind reference
   if ((result->Data()) != NULL) {
     if (CountedRefShared::resolve(arg)) return TRUE;
+
+    //    printf("HUHU\n");
     CountedRefShared::cast(result) = arg;
     return FALSE;
   }
@@ -600,6 +621,9 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
 /// blackbox support - destruction
 void countedref_destroyShared(blackbox *b, void* ptr)
 {
+
+  if (ptr) CountedRefShared::cast(ptr).destruct();
+#if 0
   CountedRefData* data = static_cast<CountedRefData*>(ptr);
 
   if(data && !data->release()) {
@@ -616,6 +640,7 @@ void countedref_destroyShared(blackbox *b, void* ptr)
     }
     delete data;
   }
+#endif
 }
 void countedref_init() 
 {
