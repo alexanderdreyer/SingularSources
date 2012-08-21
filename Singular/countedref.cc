@@ -80,9 +80,9 @@ class LeftvShallow {
 public:
   LeftvShallow(): m_data(allocate()) { }
   LeftvShallow(leftv data): 
-    m_data(allocate()) { init(m_data, data); }
+    m_data(init(allocate(), data)) { }
   LeftvShallow(const self& rhs):
-    m_data(allocate()) { init(m_data, rhs.m_data); }
+    m_data(init(allocate(), rhs.m_data)) { }
 
   ~LeftvShallow() {  
     kill();
@@ -94,14 +94,9 @@ public:
     return *this;
   }
 
-  self& operator=(const self& rhs) {
-    return (*this) = rhs.m_data;
-  }
+  self& operator=(const self& rhs) { return (*this) = rhs.m_data; }
 
   BOOLEAN get(leftv result) {
-    // if (broken())
-    //      return TRUE;      
-
     leftv next = result->next;
     result->next = NULL;
     result->CleanUp();
@@ -111,37 +106,15 @@ public:
   }
 
   /// Access to object
-  leftv operator->() { 
-    //   broken();
-    //    Warn("  Typ? %d %d %s", m_data->rtyp, m_data->Typ(), Tok2Cmdname(m_data->Typ()));
-    return m_data;
-  }
+  leftv operator->() { return m_data;  }
 
-private:
-  /// In case of identifier, ensure that the handle was not killed yet
-  /// @note: This may fail, if m_data.data were completely deallocated.
-  /// But this should not occur
-  BOOLEAN broken() const {
-    if((m_data->rtyp ==IDHDL) && brokenid(getmyroot()) && brokenid(&IDROOT) && 
-       brokenid(&currRing->idroot) ) {
-      Werror("Referenced identifier not available in current context");
-      return TRUE;
-    }
-    return FALSE;
-  }
-
-  BOOLEAN brokenid(idhdl* root) const {
-    idhdl handle = (idhdl) m_data->data;
-    for(idhdl current = *root; current != NULL; current = IDNEXT(current))
-      if (current == handle) return FALSE;
-    return TRUE;
-  }
 protected:
   static leftv allocate() { return (leftv)omAlloc0(sizeof(sleftv)); }
-  static void init(leftv result, leftv data) {
+  static leftv init(leftv result, leftv data) {
     memcpy(result, data, sizeof(sleftv));
     copy(result->e, data->e);
     result-> next = NULL;
+    return result;
   }
   static void copy(Subexpr& current, Subexpr rhs)  {
     if (rhs == NULL) return;
@@ -166,78 +139,19 @@ class LeftvDeep:
 
 public:
   LeftvDeep(): base() {}
-  LeftvDeep(leftv data): base() {  init(data); }
-  LeftvDeep(const self& rhs): base() { init(rhs.m_data); }
+  LeftvDeep(leftv data): base(data) { }
+  LeftvDeep(const self& rhs): base(rhs) { }
 
   ~LeftvDeep() { m_data->CleanUp(); }
 
-  self& operator=(const self& rhs) {
-    return operator=(rhs.m_data);
-  }
+  self& operator=(const self& rhs) { return operator=(rhs.m_data); }
   self& operator=(leftv rhs) {
     m_data->CleanUp();
     m_data->Copy(rhs);
     return *this;
   }
-private:  
-  void init(leftv rhs) {
-    if(rhs->rtyp == IDHDL) {
-      base::init(m_data, rhs);
-      return;
-    }
-    m_data->rtyp = rhs->Typ();
-    m_data->data = rhs->CopyD();
-  }
 };
 
-
-class CountedRefRing {
-  typedef CountedRefRing self;
-public:
-  /// Default constructor
-  CountedRefRing(): m_ring(NULL) {}
-
-  /// Construct from given ring
-  template <class Type>
-  CountedRefRing(const Type& rhs): m_ring(rhs) { reclaim(); }
-
-  /// Destructor
-  ~CountedRefRing() { release(); }
-
-  /// Automatically converting to @c ring
-  operator ring() { return m_ring; }
-
-  /// Pointer-stylishly cccessing @c ring
-  ring operator->() { return *this; }
-
-  /// Assign other ring
-  template <class Type>
-  self& operator=(const Type& rhs) {
-    release();
-    m_ring = rhs;
-    reclaim();
-    return *this;
-  }
-
-  /// Determines this is not the current ring
-  BOOLEAN deactivated() const {
-    return (m_ring != NULL) && (m_ring != currRing) && complain();
-  }
-
-private:
-  /// Clip taken ring
-  void reclaim() { if (m_ring) ++m_ring->ref; }
-  /// Relieve taken ring
-  void release() { if(m_ring && --m_ring->ref) rKill(m_ring); }
-  /// Raise error if this is not the current ring
-   BOOLEAN complain() const {
-     Werror("Can only use references from current ring.");
-     return TRUE;
-  }
-
-  /// Store pointer of taken ring
-  ring m_ring;
-};
 
 /** @class CountedRefData
  * This class stores a reference counter as well as a Singular interpreter object.
@@ -250,12 +164,9 @@ class CountedRefData:
   typedef RefCounter base;
 
 public:
-  /// Default constructor
-  CountedRefData(): base(), m_data(), m_context(NULL) {}
-
   /// Construct reference for Singular object
-  CountedRefData(leftv data, idhdl* ctx = &IDROOT):
-    base(), m_data(data), m_context(context(data, ctx)) { }
+  explicit CountedRefData(leftv data, idhdl* ctx = &IDROOT):
+    base(), m_data(data), m_context(ctx) { context(); }
 
   /// Construct deep copy
   CountedRefData(const self& rhs):
@@ -274,7 +185,8 @@ public:
   /// Replace with other Singular data
   void set(leftv rhs, idhdl* ctx = &IDROOT) {
     m_data = rhs;
-    m_context = context(rhs, ctx);
+    m_context = ctx;
+    context();
   }
 
   /// Write (shallow) copy to given handle
@@ -286,43 +198,33 @@ public:
   }
 
   /// Extract (shallow) copy of stored data
-  LeftvShallow operator*() { return (broken(false)? LeftvShallow(): m_data); }
-
-  /// Dangerours!
-  leftv access() { return m_data.operator->(); }
-
+  LeftvShallow operator*() { return (broken()? LeftvShallow(): m_data); }
 
 private:
-  BOOLEAN broken(bool silent=false) {
-
-    //    Warn("m_context, getmyroot(), &currRing->idroot %p %p %p  \n",  m_context, getmyroot(), &currRing->idroot);
+  /// Check whether identifier became invalid
+  /// @note Sergio Leone memorial function
+  BOOLEAN broken() {
     if( (m_context == getmyroot()) || (m_context == &currRing->idroot))
-      return FALSE;             // the good, 
+      return FALSE;                  // the good, 
 
-    if (m_data->RingDependend()) // the bad,
-      return complain("Referenced identifier not available in current ring",silent);
+    if (m_data->RingDependend())     // the bad,
+      return complain("Referenced identifier not available in current ring");
 
-    //    Warn("broken? %d %d %d", brokenid(m_context),
-    //     m_context != &basePack->idroot, brokenid(&basePack->idroot) );
-    
     return (brokenid(m_context) &&   // and the ugly (case)
-            ((m_context == &basePack->idroot) || brokenid(&basePack->idroot))) &&
-      complain("Referenced identifier not found in current context", silent);
+            ((m_context == &basePack->idroot) || brokenid())) &&
+      complain("Referenced identifier not found in current context");
   }
 
-  /// Detect context for current object
-  static idhdl* context(leftv data, idhdl* ctx) {
-    if (data->RingDependend())
-      return &currRing->idroot;
-    return ctx;
-  }
+  /// Determine corresponding context
+  /// @note for ring-dependent object we always store @c currRing's root as marker 
+  void context() { if (m_data->RingDependend()) m_context = &currRing->idroot; }
 
-  BOOLEAN complain(const char* text, bool silent) {
-    if(!silent)
-      Werror(text);
+  /// 
+  BOOLEAN complain(const char* text) {
+    Werror(text);
     return TRUE;
   }
-  BOOLEAN brokenid(idhdl* root) {
+  BOOLEAN brokenid(idhdl* root = &basePack->idroot) {
     idhdl handle = (idhdl) m_data->data;
     for(idhdl current = *root; current != NULL; current = IDNEXT(current))
       if (current == handle) return FALSE;
@@ -409,9 +311,8 @@ public:
   ~CountedRef() { destruct(); }
 
   BOOLEAN dereference(leftv arg) {
-    
-    if(m_data->get(arg)) return TRUE;
-    return (arg->next != NULL) && resolve(arg->next);
+    assume(is_ref(arg));
+    return m_data->get(arg) || ((arg->next != NULL) && resolve(arg->next));
   }
 
 
@@ -419,7 +320,7 @@ public:
   /// @note It may change leftv. It is common practice, so we are fine with it.
 
   static self cast(void* data) {
-    assume(data);
+    assume(data != NULL);
     return self(static_cast<data_type*>(data));
   }
 
@@ -587,8 +488,6 @@ private:
    killhdl2((idhdl)(data->data), myroot, currRing);
    data->data = NULL;
    data->rtyp = NONE;
-   assume(*myroot != NULL);
-   
    
    if(--((*myroot)->ref)) {
      killhdl2(*myroot, &IDROOT, currRing);
@@ -604,12 +503,9 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
   /// Case: replace assignment behind reference
   if ((result->Data()) != NULL) {
     if (CountedRefShared::resolve(arg)) return TRUE;
-
-    //    printf("HUHU\n");
     CountedRefShared::cast(result) = arg;
     return FALSE;
   }
-
   
   /// Case: new shared data
   if (result->Typ() == arg->Typ()) 
@@ -621,27 +517,9 @@ BOOLEAN countedref_AssignShared(leftv result, leftv arg)
 /// blackbox support - destruction
 void countedref_destroyShared(blackbox *b, void* ptr)
 {
-
   if (ptr) CountedRefShared::cast(ptr).destruct();
-#if 0
-  CountedRefData* data = static_cast<CountedRefData*>(ptr);
-
-  if(data && !data->release()) {
-    if (data->access()->rtyp == IDHDL) // We made the identifier, so we clean up
-    {
-      idhdl* myroot = getmyroot();
-      killhdl2((idhdl)(data->access()->data), myroot, currRing);
-      assume(*myroot != NULL);
-      if(--((*myroot)->ref)) {
-          killhdl2(*myroot, &IDROOT, currRing);
-          (*myroot) = NULL;
-        }
-      
-    }
-    delete data;
-  }
-#endif
 }
+
 void countedref_init() 
 {
   blackbox *bbx = (blackbox*)omAlloc0(sizeof(blackbox));
