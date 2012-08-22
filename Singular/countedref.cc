@@ -452,31 +452,45 @@ BOOLEAN countedref_Assign(leftv result, leftv arg)
   Werror("Can only take reference from identifier");
   return FALSE;
 }
-                                                                     
+
+BOOLEAN countedref_CheckInit(leftv res, leftv arg)
+{
+  if (arg->Data() != NULL) return FALSE;
+  res->rtyp = NONE;
+  Werror("Noninitialized access");
+  return TRUE;
+}
+                                                                 
 /// blackbox support - unary operations
 BOOLEAN countedref_Op1(int op, leftv res, leftv head)
 {
-  if (head->Data() == NULL) return FALSE;
   if(op == TYPEOF_CMD)
     return blackboxDefaultOp1(op, res, head);
 
+  if (countedref_CheckInit(res, head)) return TRUE;
+
+  if(op == head->Typ()) {
+    res->rtyp = op;
+    return iiAssign(res, head);
+  }
+
   return CountedRef::cast(head).dereference(head) || 
-    iiExprArith1(res, head, (op == DEF_CMD? head->Typ(): op));
+    iiExprArith1(res, head, op == DEF_CMD? head->Typ(): op);
 }
 
 /// blackbox support - binary operations
 BOOLEAN countedref_Op2(int op, leftv res, leftv head, leftv arg)
 {
-  if (head->Data() == NULL) return FALSE;
-  return CountedRef::cast(head).dereference(head) || CountedRef::resolve(arg) ||
+  return countedref_CheckInit(res, head) ||
+    CountedRef::cast(head).dereference(head) || CountedRef::resolve(arg) ||
     iiExprArith2(res, head, op, arg);
 }
 
 /// blackbox support - ternary operations
 BOOLEAN countedref_Op3(int op, leftv res, leftv head, leftv arg1, leftv arg2)
 {
-  if (head->Data() == NULL) return FALSE;
-  return  CountedRef::cast(head).dereference(head) || 
+  return countedref_CheckInit(res, head) ||
+    CountedRef::cast(head).dereference(head) || 
     CountedRef::resolve(arg1) || CountedRef::resolve(arg2) ||
     iiExprArith3(res, op, head, arg1, arg2);
 }
@@ -569,15 +583,6 @@ BOOLEAN countedref_OpM(int op, leftv res, leftv args)
       if ((strcmp(name, "like") == 0) || (strcmp(name, "likewise") == 0))
         return (next == NULL) ||  obj.likewise(res, next);
       if (strcmp(name, "name") == 0) return obj.name(res);
-      if ( ((strcmp(name, "replace") == 0) || (strcmp(name, "=") == 0)) &&
-           next){
-        if (CountedRef::resolve(next)) return TRUE;
-        bool is_shared = strcmp(Tok2Cmdname(args->Typ()), "shared") == 0;
-        if (is_shared) CountedRefShared::cast(args) = next;
-        else obj = next;
-        res->rtyp = NONE;  
-        return FALSE;
-      }
       if ((strcmp(name, "type") == 0) || (strcmp(name, "typeof") == 0))
         return obj.type(res);
       return TRUE;
