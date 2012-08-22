@@ -175,8 +175,13 @@ public:
 
   self& operator=(const self& rhs) { return operator=(rhs.m_data); }
   self& operator=(leftv rhs) {
-    m_data->CleanUp();
-    m_data->Copy(rhs);
+    assume(m_data->rtyp == IDHDL);
+    kill();
+    m_data->e = rhs->e;
+    IDTYP((idhdl)m_data->data) =  rhs->Typ();
+    IDDATA((idhdl)m_data->data) = (char*) rhs->CopyD();
+    rhs->e = NULL;
+    
     return *this;
   }
 };
@@ -477,33 +482,6 @@ BOOLEAN countedref_Op3(int op, leftv res, leftv head, leftv arg1, leftv arg2)
 }
 
 
-/// blackbox support - n-ary operations
-BOOLEAN countedref_OpM(int op, leftv res, leftv args)
-{
-  if (args->Data() == NULL) return FALSE;
-
-  if(op == SYSTEM_CMD) {
-    if (args->next) {
-      leftv next = args->next;
-      args->next = NULL;
-      CountedRef obj = CountedRef::cast(args);
-      char* name = (next->Typ() == STRING_CMD? 
-                    (char*) next->Data(): (char*)next->Name());
-      if (strcmp(name, "count") == 0) return obj.count(res);
-      if (strcmp(name, "hash") == 0) return obj.hash(res);
-      if (strcmp(name, "same") == 0) 
-        return (next->next == NULL) ||  obj.same(res, next->next);
-      if ((strcmp(name, "like") == 0) || (strcmp(name, "likewise") == 0))
-        return (next->next == NULL) ||  obj.likewise(res, next->next);
-      if (strcmp(name, "name") == 0) return obj.name(res);
-      if ((strcmp(name, "type") == 0) || (strcmp(name, "typeof") == 0))
-        return obj.type(res);
-      return TRUE;
-    }
-    return TRUE;
-  }
-  return CountedRef::cast(args).dereference(args) || iiExprArithM(res, args, op);
-}
 
 /// blackbox support - destruction
 void countedref_destroy(blackbox *b, void* ptr)
@@ -538,7 +516,7 @@ public:
 
   /// Replace data that reference is pointing to
   self& operator=(leftv rhs) {
-    m_data->set(wrap(rhs), CountedRefEnv::locals());
+    m_data->set(rhs, CountedRefEnv::locals());
     return *this;
   }
   void destruct() {
@@ -570,6 +548,44 @@ private:
 };
 
 
+/// blackbox support - n-ary operations
+BOOLEAN countedref_OpM(int op, leftv res, leftv args)
+{
+  if (args->Data() == NULL) return FALSE;
+
+  if(op == SYSTEM_CMD) {
+;
+    if (args->next) {
+      leftv next = args->next;
+      args->next = NULL;
+      CountedRef obj = CountedRef::cast(args);
+      char* name = (next->Typ() == STRING_CMD? 
+                    (char*) next->Data(): (char*)next->Name());
+      next = next->next;
+      if (strcmp(name, "count") == 0) return obj.count(res);
+      if (strcmp(name, "hash") == 0) return obj.hash(res);
+      if (strcmp(name, "same") == 0) 
+        return (next == NULL) ||  obj.same(res, next);
+      if ((strcmp(name, "like") == 0) || (strcmp(name, "likewise") == 0))
+        return (next == NULL) ||  obj.likewise(res, next);
+      if (strcmp(name, "name") == 0) return obj.name(res);
+      if ( ((strcmp(name, "replace") == 0) || (strcmp(name, "=") == 0)) &&
+           next){
+        if (CountedRef::resolve(next)) return TRUE;
+        bool is_shared = strcmp(Tok2Cmdname(args->Typ()), "shared") == 0;
+        if (is_shared) CountedRefShared::cast(args) = next;
+        else obj = next;
+        res->rtyp = NONE;  
+        return FALSE;
+      }
+      if ((strcmp(name, "type") == 0) || (strcmp(name, "typeof") == 0))
+        return obj.type(res);
+      return TRUE;
+    }
+    return TRUE;
+  }
+  return CountedRef::cast(args).dereference(args) || iiExprArithM(res, args, op);
+}
 /// blackbox support - assign element
 BOOLEAN countedref_AssignShared(leftv result, leftv arg)
 {
