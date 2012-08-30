@@ -269,6 +269,8 @@ public:
 
   ~LeftvDeep() { m_data->CleanUp(); }
 
+  bool like(const self& rhs) const { return m_data->data == rhs.m_data->data; }
+
   self& operator=(const self& rhs) { return operator=(rhs.m_data); }
   self& operator=(leftv rhs) {
     m_data->e = rhs->e;
@@ -300,8 +302,12 @@ class CountedRefData:
   typedef RefCounter base;
 
   /// Subscripted object
-  CountedRefData(idhdl handle, CountedRefPtr<self*> back):
-    base(), m_data(init(handle)), m_ring(back->Ring()), m_back(back) { }
+  CountedRefData(leftv wrapped, CountedRefPtr<self*> back):
+    base(), m_data(wrapped), m_ring(back->m_ring), m_back(back) {
+
+    assume(wrapped->rtyp == IDHDL);
+    ++((idhdl)m_data.access()->data)->ref;
+  }
 
 public:
   /// Construct shared memory empty Singular object
@@ -321,11 +327,15 @@ public:
   
   /// Destruct
   ~CountedRefData() { 
-    if (m_back) CountedRefEnv::clearid((idhdl)m_data.access()->data, root());
-   }
+    if (m_back && (--((idhdl)m_data.access()->data)->ref <= 0))  // clear only if we own
+      CountedRefEnv::clearid((idhdl)m_data.access()->data, root());	
+  }
 
   CountedRefPtr<self*> subscripted() {
-    return new self(CountedRefEnv::idify(m_data.access(), root()), this);
+    if (m_back)
+      return new self(operator*().operator->(), m_back);
+
+    return new self(init(CountedRefEnv::idify(m_data.access(), root())), this);
   }
 
   /// Replace data
@@ -384,11 +394,6 @@ public:
     return get(result) || iiAssign(result, arg) || rering();
   }
 
-  /// @note If we have a callback, our identifier was temporary, so remove it
-  void clear() {  
-    if (m_back) CountedRefEnv::clearid((idhdl)m_data.access()->data, root());
-  }
-
   BOOLEAN retrieve(leftv res) {
     if (res->data == m_data.access()->data)  {
       memcpy(m_data.access(), res, sizeof(sleftv));
@@ -398,7 +403,6 @@ public:
     return FALSE;
   }
 
-  CountedRefPtr<ring, true> Ring() { return m_ring; }
   int Typ() const {return m_data->Typ(); }
 private:
 
@@ -438,6 +442,10 @@ protected:
   CountedRefPtr<self*> m_back;
 };
 
+/// Supporting smart pointer @c CountedRefPtr
+inline void CountedRefPtr_kill(CountedRefData* data) { delete data; }
+
+
 /// blackbox support - initialization
 /// @note deals as marker for compatible references, too.
 void* countedref_Init(blackbox*)
@@ -445,9 +453,6 @@ void* countedref_Init(blackbox*)
   return NULL;
 }
 
-
-
-inline void CountedRefPtr_kill(CountedRefData* data) { delete data; }
 
 class CountedRef {
   typedef CountedRef self;
@@ -726,9 +731,8 @@ public:
   static self cast(leftv arg) { return base::cast(arg); }
   static self cast(void* arg) { return base::cast(arg); }
 
-  self subscripted() {
-    return self(m_data->subscripted());//new CountedRefDataIndexed(m_data->idify(), m_data);
-  }
+  /// Temporarily wrap with identifier for '[' and '.' operation
+  self subscripted() { return self(m_data->subscripted()); }
 
   BOOLEAN retrieve(leftv res, int typ) { 
     return (m_data->retrieve(res) && outcast(res, typ));
@@ -748,7 +752,7 @@ BOOLEAN countedref_Op2Shared(int op, leftv res, leftv head, leftv arg)
     CountedRefShared indexed = CountedRefShared::cast(head).subscripted();
 
     int typ = head->Typ();
-    return indexed.dereference(head) || CountedRef::resolve(arg) || 
+    return indexed.dereference(head) || CountedRefShared::resolve(arg) || 
       iiExprArith2(res, head, op, arg) || indexed.retrieve(res, typ);
   }
 
