@@ -498,6 +498,7 @@ pyobject.${MODULE_SUFFIX}: pyobject.dl_o
 countedref.${MODULE_SUFFIX}: countedref.dl_og
 	@echo "build dynamic module countedref..."
 	$(LD) -g ${SLDFLAGS} -o $@ $^ ${GLIBC_DYN_FIX}
+countedref.dl_og: countedref.h
 
 src: scanner.cc grammar.h grammar.cc libparse.cc
 

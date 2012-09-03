@@ -29,7 +29,7 @@
  * to a reference-counted structure and destructing the latter after use.
  *
  * The template arguments, include the pointer type @c PtrType, and two
- * integral (bool) properties: use @c isWeak to disallow destruction
+ * integral (bool) properties: use @c Nondestructive to disallow destruction
  * and @c NeverNull to assume, that @c PtrType cannot be @c NULL.
  * Finally, @c CountType allows you to select a typ to represent the internal reference count.
  *
@@ -37,7 +37,8 @@
  * For convenience use @c RefCounter as public base.
  * In addition you must overload @c void CountedRefPtr_kill(PtrType) accordingly.
  **/
-template <class PtrType, bool isWeak = false, bool NeverNull = false, class CountType = short>
+template <class PtrType, bool Nondestructive = false, bool NeverNull = false,
+          class CountType = short>
 class CountedRefPtr {
   typedef CountedRefPtr self;
 
@@ -45,7 +46,7 @@ public:
   //{ @name Name template arguments
   typedef PtrType ptr_type;
   typedef CountType count_type;
-  enum { is_weak = isWeak, never_null = NeverNull };
+  enum { nondestructive = Nondestructive, never_null = NeverNull };
   //}
 
   /// Default constructor @note: exisis only if @c NeverNull is false
@@ -56,7 +57,7 @@ public:
 
   /// Convert from compatible smart pointer
   template <bool Never>
-  CountedRefPtr(const CountedRefPtr<ptr_type, !is_weak, Never, count_type>& rhs):
+  CountedRefPtr(const CountedRefPtr<ptr_type, !nondestructive, Never, count_type>& rhs):
     m_ptr(rhs.m_ptr) { reclaim(); }
 
   /// Construct refernce copy
@@ -88,14 +89,15 @@ public:
   ptr_type operator->() { return *this; }
   //}
 
-  //{ @name Reference count interface
+  /// @name Reference count interface
+  //@{
   count_type count() const { return (*this? m_ptr->ref: 0); }
   void reclaim() { if (*this) ++m_ptr->ref; }
   void release() { 
-    if (*this && (--m_ptr->ref <= 0) && !is_weak)
+    if (*this && (--m_ptr->ref <= 0) && !nondestructive)
       CountedRefPtr_kill(m_ptr); 
   }
-  //}
+  //@}
 
 private:
   /// Store actual pointer
@@ -125,6 +127,79 @@ private:
   /// Number of references
   count_type ref;  // naming consistent with other classes
 };
+
+
+template <class PtrType>
+class CountedRefIndirectPtr: 
+  public RefCounter {
+public:
+  typedef PtrType ptr_type;
+  CountedRefIndirectPtr(ptr_type ptr): m_ptr(ptr) { }
+  CountedRefIndirectPtr& operator=(ptr_type ptr) { m_ptr = ptr; return *this; }
+  ptr_type m_ptr;
+};
+
+template <class PtrType> 
+inline void CountedRefPtr_kill(CountedRefIndirectPtr<PtrType>* pval) { delete pval; }
+
+template <class PtrType>
+class CountedRefWeakPtr {
+  typedef CountedRefWeakPtr self;
+
+public:
+
+  /// @name Name template arguments
+  //@{ Name template arguments
+  typedef PtrType ptr_type;
+  typedef CountedRefPtr<CountedRefIndirectPtr<ptr_type>*> ptrptr_type;
+  //@}
+
+  /// Construct unassigned weak reference
+  CountedRefWeakPtr(): m_indirect(NULL) { }
+
+  /// Convert from pointer
+  CountedRefWeakPtr(ptr_type ptr): m_indirect(new CountedRefIndirectPtr<ptr_type>(ptr)) { }
+
+  /// Construct copy
+  CountedRefWeakPtr(const self& rhs):  m_indirect(rhs.m_indirect) { }
+
+  /// Unlink one reference (handled by CountedRefPtr)
+  ~CountedRefWeakPtr() { }
+
+  /// Mark weak reference as invalid
+  void invalidate() {  m_indirect->m_ptr = NULL; }
+
+  /// Test whether reference was never used
+  bool unassigned() const { return !m_indirect; }
+
+  /// Pointer-style interface
+  //@{
+  operator bool() const {  return operator->(); }
+  self& operator=(const self& rhs) { 
+    m_indirect = rhs;
+    return *this;
+  }
+  self& operator=(ptr_type ptr) {
+    if (!m_indirect) 
+      m_indirect = new CountedRefIndirectPtr<ptr_type>(ptr);
+    else
+      m_indirect->m_ptr = ptr;
+    return *this;
+  }
+  bool operator==(ptr_type ptr) const { 
+    return m_indirect &&(m_indirect->m_ptr == ptr); 
+  }
+  bool operator!=(ptr_type rhs) const { return !operator==(rhs); }
+  const ptr_type operator->() const { return (m_indirect? m_indirect->m_ptr: NULL); }
+  ptr_type operator->() {   return (m_indirect? m_indirect->m_ptr:NULL); }
+  //@}
+
+private:
+  ptrptr_type m_indirect;
+};
+
+
+
 
 
 /** @class LeftvHelper
