@@ -130,13 +130,17 @@ private:
 
 
 template <class PtrType>
+class CountedRefWeakPtr;
+
+template <class PtrType>
 class CountedRefIndirectPtr: 
   public RefCounter {
 public:
-  typedef PtrType ptr_type;
-  CountedRefIndirectPtr(ptr_type ptr): m_ptr(ptr) { }
-  CountedRefIndirectPtr& operator=(ptr_type ptr) { m_ptr = ptr; return *this; }
-  ptr_type m_ptr;
+  friend class CountedRefWeakPtr<PtrType>;
+private:
+  CountedRefIndirectPtr(PtrType ptr): m_ptr(ptr) { }
+  CountedRefIndirectPtr& operator=(PtrType ptr) { m_ptr = ptr; return *this; }
+  PtrType m_ptr;
 };
 
 template <class PtrType> 
