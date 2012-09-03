@@ -1,4 +1,4 @@
-/// -*- c++ -*-
+// -*- c++ -*-
 //*****************************************************************************
 /** @file countedref.cc
  *
@@ -52,7 +52,9 @@ inline void CountedRefPtr_kill(ring r) { rKill(r); }
 class CountedRefData:
   public RefCounter {
   typedef CountedRefData self;
+public:
   typedef CountedRefWeakPtr<self*> back_ptr;
+private:
   typedef RefCounter base;
 
   /// Generate object linked to other reference (e.g. for subscripts)
@@ -488,6 +490,9 @@ public:
   /// Temporarily wrap with identifier for '[' and '.' operation
   self subscripted() { return self(m_data->subscripted()); }
 
+  ///
+  data_type::back_ptr weakref() { return m_data->weakref(); }
+
   BOOLEAN retrieve(leftv res, int typ) { 
     return (m_data->retrieve(res) && outcast(res, typ));
   }
@@ -604,7 +609,11 @@ BOOLEAN countedref_serialize(blackbox *b, void *d, si_link f)
   l.rtyp = STRING_CMD;
   l.data = (void*)omStrDup("shared"); // references are converted
   f->m->Write(f, &l);
-  CountedRefShared::cast(d).dereference(&l);
+  CountedRefShared shared = CountedRefShared::cast(d);
+  l.CleanUp();
+  shared.enumerate(&l);
+  f->m->Write(f, &l);
+  shared.dereference(&l);
   f->m->Write(f, &l);
   return FALSE;
 }
@@ -613,8 +622,38 @@ BOOLEAN countedref_deserialize(blackbox **b, void **d, si_link f)
 {
   // rtyp must be set correctly (to the blackbox id) by routine calling
   leftv data=f->m->Read(f);
-  CountedRefShared sh(data);
-  *d = sh.outcast();
+  if (data->Typ() != INT_CMD) {
+    Werror("Error reading shared from link");
+    return TRUE;
+  }
+  unsigned long key = (unsigned long)data->Data();
+  data->CleanUp();
+  data=f->m->Read(f);
+  static CountedRefWeakTable<CountedRefData*>* cache = new CountedRefWeakTable<CountedRefData*>;
+  CountedRefWeakTable<CountedRefData*>* cached = (*cache)[key];
+  assume(cached);
+
+  if(!cached->m_value.unassigned()) {
+//    Warn("ass");
+//   (CountedRfData*) cached->m_value->operator->();
+CountedRefShared::cast((CountedRefData*) cached->m_value.operator->()).outcast();
+
+//    cached->m_value  = CountedRefShared(data).outcast();
+  }
+  else {
+//Warn("unass %d", key);
+
+
+    CountedRefShared sh(data);
+   sh.outcast();
+
+    CountedRefWeakPtr<CountedRefData*> wref = sh.weakref();
+    cached->m_value = wref;
+    cached->m_value.tables() = new CountedRefWeakTableList<CountedRefData*>(cached, cached->m_value.tables());
+  }
+
+  *d = (CountedRefData*) cached->m_value.operator->();
+//  CountedRefShared(*d).outcast()
   return FALSE;
 }
 
