@@ -133,70 +133,17 @@ template <class PtrType>
 class CountedRefWeakPtr;
 
 template <class PtrType>
-class CountedRefWeakTable {
-  typedef CountedRefWeakTable self;
-public:
-  typedef unsigned long key_type;
-  typedef PtrType ptr_type;
-  typedef CountedRefWeakPtr<ptr_type> store_type;
-  CountedRefWeakTable(self* prev=NULL, self* next=NULL, key_type key=0):
-    m_previous(prev), m_next(next), m_key(key), m_value() {
-    //Warn("table %p %p", m_previous, m_next);
-
-    if (m_previous) m_previous->m_next = this;
-    if (m_next) m_next->m_previous = this;
-  }
-
-  ~CountedRefWeakTable() { 
-     if (m_next) m_next->m_previous = m_previous;
-     if (m_previous) m_previous->m_next = m_next;
-     else delete m_next;
-  }
- 
-  self* operator[] (const key_type& key) {
-    self* iter = this;
-    while(iter->m_next && (iter->m_key < key))
-      iter = iter->m_next;
-  //  Warn ("iter %p %d", iter, key);
-    return (iter && (iter->m_key == key)? iter: new self(iter, iter->m_next, key));
-  }
-
-//private:
-  key_type m_key;
-  store_type m_value;
-  self* m_previous;
-  self* m_next;
-};
-
-template <class PtrType>
-class CountedRefWeakTableList {
-  typedef CountedRefWeakTableList self;
-public:
-  CountedRefWeakTableList(CountedRefWeakTable<PtrType>* table, self* next=NULL):
-    m_table(table), m_next(next) {}
-  ~CountedRefWeakTableList() { 
-    delete m_table;
-    delete m_next; 
-  }
-
-  
-private:
-  CountedRefWeakTable<PtrType>* m_table;
-  self* m_next;
-};
-
-template <class PtrType>
 class CountedRefIndirectPtr: 
   public RefCounter {
 public:
   friend class CountedRefWeakPtr<PtrType>;
-  ~CountedRefIndirectPtr()  { delete m_tables; }
+  ~CountedRefIndirectPtr()  { }
+
 private:
-  CountedRefIndirectPtr(PtrType ptr): m_tables(NULL), m_ptr(ptr) { }
+  CountedRefIndirectPtr(PtrType ptr): m_ptr(ptr) { }
   CountedRefIndirectPtr& operator=(PtrType ptr) { m_ptr = ptr; return *this; }
 
   PtrType m_ptr;
-  CountedRefWeakTableList<PtrType>* m_tables;  
 };
 
 template <class PtrType> 
@@ -231,8 +178,6 @@ public:
 
   /// Test whether reference was never used
   bool unassigned() const { return !m_indirect; }
-
-  CountedRefWeakTableList<PtrType>*& tables() { return m_indirect->m_tables; }
 
   /// Pointer-style interface
   //@{
