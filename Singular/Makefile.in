@@ -229,7 +229,7 @@ CXXSOURCES=grammar.cc scanner.cc attrib.cc \
     MinorInterface.cc \
     bigintm.cc pyobject_setup.cc \
     denom_list.cc \
-    minpoly.cc
+    minpoly.cc countedref.cc
 
 # stuff for MP
 MPSR_SOURCES = mpsr_Put.cc mpsr_PutPoly.cc mpsr_GetPoly.cc mpsr_sl.cc\
@@ -267,7 +267,7 @@ SOURCES=${CSOURCES} ${CXXSOURCES} \
 
 HEADERS=lists.h attrib.h \
 	mpsr_Tok.h \
-	ipconv.h newstruct.h \
+	ipconv.h newstruct.h countedref.h \
 	subexpr.h ipid.h \
 	cntrlc.h ipprint.h sdb.h \
 	ipshell.h tok.h \
@@ -297,10 +297,10 @@ P_PROCS_MODULES = FieldZp FieldIndep FieldQ FieldGeneral
 ifeq ($(DL_KERNEL),1)
 OBJS 	:= $(OBJS) $(DL_KERNEL_SOURCES:.cc=.o)
 DBMSR_SO= dbmsr.so
-DL_LIBS := $(DBMSR_SO) ${PYOBJECT_MODULE} countedref.${MODULE_SUFFIX}
+DL_LIBS := $(DBMSR_SO) ${PYOBJECT_MODULE} #countedref.${MODULE_SUFFIX}
 ifeq ($(HAVE_MPSR), 1)
 MPSR_SO	=	mpsr.so
-DL_LIBS := 	$(DL_LIBS) $(MPSR_SO) ${PYOBJECT_MODULE} countedref.${MODULE_SUFFIX}
+DL_LIBS := 	$(DL_LIBS) $(MPSR_SO) ${PYOBJECT_MODULE} #countedref.${MODULE_SUFFIX}
 endif
 else
 ifndef LD_STATIC
