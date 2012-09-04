@@ -2791,6 +2791,8 @@ Possible type casts are:
 @item
 @    @tab to @tab from
 @item
+@    @tab  @code{bigint} @tab  expression @code{int}, @code{number}, @code{poly}
+@item
 @    @tab  @code{ideal} @tab  expression lists of @code{int}, @code{number}, @code{poly}
 @item
 @    @tab  @code{ideal} @tab  @code{int}, @code{matrix}, @code{module}, @code{number}, @code{poly}, @code{vector}
@@ -2826,6 +2828,8 @@ matrix (@pxref{matrix type cast})
 @    @tab  @code{number} @tab @code{poly}
 @item
 @   @tab  @code{poly} @tab   @code{int}, @code{number}
+@item
+@    @tab  @code{ring} @tab   @code{list} (the inverse of @code{ringlist})
 @item
 @   @tab  @code{string} @tab   any type (@pxref{string type cast})
 @end multitable
