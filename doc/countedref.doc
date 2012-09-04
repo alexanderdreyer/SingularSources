@@ -13,7 +13,8 @@ Copying such object will only add an additional handle which allows you
 to define multiple identifers for the same object instance.
 
 You must initialize a @code{reference} using a named identifier
-or a subexpression of the latter:
+or a subexpression of the latter. The resulting object can be stored to gain
+read and write access from sophisticated data structures.
 
 @smallexample
 @c example initializing references
@@ -43,16 +44,33 @@ ll;
 @c example
 @end smallexample
 
-In most cases the value look-up is done automatically, but for some 
+In contrast, the type @code{shared} can be used to
+avoid the initial identifier definition. Each copy has equal rights
+for manipulating the data.
+
+@smallexample
+@c example initializing shared
+shared ll= list(2,3);
+
+ll[1];
+ll[1]= 17;
+ll;
+@c example
+@end smallexample
+
+
+In most cases the value look-up is done automatically, but in some cases
+you have to disambiguate the input.
  
 @smallexample
 @c example automatically dereferencing
 int i = 0;
 reference ref = i;
+shared sh = 12;
 
-ref + ref;    // automated 'dereferencing'
+ref + sh;    // automated 'dereferencing'
 ref + 4;
-4 + ref;
+4 + sh;
 
 list ll = list(ref, ref, ref, ref, ref, ref, ref);
 string(ll);
@@ -74,6 +92,8 @@ string(ll);
 @menu
 * reference declarations::
 * reference expressions::
+* shared declarations::
+* shared expressions::
 * reference and shared operations::
 * reference and shared related functions::
 @end menu
@@ -147,6 +167,68 @@ an identifier of type reference (references the original, too)
 @end smallexample
 
 @c ------------------------------
+
+@node shared declarations, shared expressions, countedref, countedref
+@subsection shared declarations
+@cindex shared declarations
+
+@table @strong
+@item Syntax:
+shared name @code{=} expression @code{;}
+
+@item Purpose:
+defines a @code{shared} object.
+
+@item Default:
+@code{None}
+
+@item Example:
+@smallexample
+@c example
+  shared empty;
+  empty;
+
+  shared str = "Hello World!";
+  str;
+  shared ll= list(4, 5, 6);
+  ll;
+  ll[2] = str;  // change list element
+  ll;
+@c example
+@end smallexample
+@end table
+
+@c ------------------------------
+node shared expressions, shared operations, shared declarations, countedref
+@subsection shared expressions
+@cindex shared expressions
+shared expression:
+
+@enumerate
+@item
+any expression
+@item
+an identifier
+@end enumerate
+
+@*@strong{Example:}
+@smallexample
+@c example
+  shared sh = 17;  // new shared 
+  shared second = sh;
+  second;
+  second = 9;       // also tied to 'sh'
+  i;
+  typeof(ref);
+
+  shared ll = list(1, 2, 3);
+  shared lref = ll[1];
+  lref;
+  lref = 12;
+  ll;
+@c example
+@end smallexample
+
 @node reference operations, reference related functions, reference expressions, countedref
 @subsection reference and shared operations
 @cindex reference operations
@@ -192,7 +274,7 @@ explicitly type casting to @code{reference}.
 ring r = 0, (x,y,z), dp;
 poly p = x + y + z;
 shared xsh = x;
-//subst(p, xsh,1, y,2, z,3);        // fails
+subst(p, xsh,1, y,2, z,3);        // fails
 subst(p, poly(xsh),1, y,2, z,3);  // good
 subst(p, link(xsh),1, y,2, z,3);  // fine
 
