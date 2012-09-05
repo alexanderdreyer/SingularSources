@@ -1081,6 +1081,16 @@ poly(xsh);
 poly(xsh);
 
 
+
+// Checking side effects
+list changeme;
+changeme;
+
+proc setfirst(reference ll, def arg) { ll[1] = arg; }
+
+setfirst(changeme, 17);
+changeme;
+
 // --------------------------------------------------------
 tst_status(1);$
 
