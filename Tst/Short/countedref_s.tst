@@ -1,5 +1,5 @@
-// File: alexpoly.tst
-// Tests for alexpoly lib
+// File: countedref_s.tst
+// Tests for reference and shared data types
 LIB "tst.lib";
 tst_init();
 
