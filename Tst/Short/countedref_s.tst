@@ -827,7 +827,7 @@ for (i=0; i<=n; i++ )
 {
   diag = chain(diag);
 }
-timer-t;
+//timer-t;
 
 shared iter=diag;
 //while(int(iter.idx)) {
@@ -876,7 +876,7 @@ for (i=0; i<=n; i++ )
   val =chain0(diag0);
    diag0=val;
 }
-timer-t;
+//timer-t;
 
 proc print_bdd0(def iter) {
   string res = "("+string(iter.idx)+", ";
