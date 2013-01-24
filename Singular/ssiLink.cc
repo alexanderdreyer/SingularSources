@@ -58,6 +58,33 @@
 //#define HAVE_PSELECT
 //#endif
 
+#define SI_EINTR_SAVE_FUNC(func, decl, args)	\
+inline int si_##func decl                \
+{                                        \
+  int res = -1;	                         \
+  do                                     \
+  {                                      \
+    res = func args;		         \
+  } while((res < 0) && (errno == EINTR));\
+  return res;                            \
+}
+
+
+SI_EINTR_SAVE_FUNC(select,
+		   (int nfds, fd_set *readfds, fd_set *writefds,
+		    fd_set *exceptfds, struct timeval *timeout),
+		   (nfds,readfds, writefds, exceptfds, timeout)
+		   )
+
+SI_EINTR_SAVE_FUNC(pselect,
+		   (int nfds, fd_set *readfds, fd_set *writefds,
+		    fd_set *exceptfds, const struct timespec *timeout,
+		    const sigset_t *sigmask),
+		   (nfds, readfds, writefds, exceptfds, timeout,sigmask)
+		   )
+
+#undef SI_EINTR_SAVE_FUNC_BODY
+
 #define SSI_VERSION 5
 
 // 64 bit version:
@@ -1484,7 +1511,7 @@ const char* slStatusSsi(si_link l, const char* request)
       FD_SET(d->fd_read, &mask);
       //Print("test fd %d\n",d->fd_read);
     /* check with select: chars waiting: no -> not ready */
-      switch (select(d->fd_read+1, &mask, NULL, NULL, &wt))
+      switch (si_select(d->fd_read+1, &mask, NULL, NULL, &wt))
       {
         case 0: /* not ready */ return "not ready";
         case -1: /*error*/      return "error";
@@ -1655,10 +1682,10 @@ do_select:
   sipc_semaphore_release(0);
   #endif
   #ifdef HAVE_PSELECT
-  s = pselect(max_fd, &mask, NULL, NULL, wt_ptr, &sigmask);
+  s = si_pselect(max_fd, &mask, NULL, NULL, wt_ptr, &sigmask);
   #else
   SSI_BLOCK_CHLD;
-  s = select(max_fd, &mask, NULL, NULL, wt_ptr);
+  s = si_select(max_fd, &mask, NULL, NULL, wt_ptr);
   SSI_UNBLOCK_CHLD;
   #endif
   #ifdef HAVE_SIMPLEIPC
