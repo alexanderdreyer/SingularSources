@@ -58,32 +58,7 @@
 //#define HAVE_PSELECT
 //#endif
 
-#define SI_EINTR_SAVE_FUNC(func, decl, args)	\
-inline int si_##func decl                \
-{                                        \
-  int res = -1;	                         \
-  do                                     \
-  {                                      \
-    res = func args;		         \
-  } while((res < 0) && (errno == EINTR));\
-  return res;                            \
-}
-
-
-SI_EINTR_SAVE_FUNC(select,
-		   (int nfds, fd_set *readfds, fd_set *writefds,
-		    fd_set *exceptfds, struct timeval *timeout),
-		   (nfds,readfds, writefds, exceptfds, timeout)
-		   )
-
-SI_EINTR_SAVE_FUNC(pselect,
-		   (int nfds, fd_set *readfds, fd_set *writefds,
-		    fd_set *exceptfds, const struct timespec *timeout,
-		    const sigset_t *sigmask),
-		   (nfds, readfds, writefds, exceptfds, timeout,sigmask)
-		   )
-
-#undef SI_EINTR_SAVE_FUNC_BODY
+#include <Singular/si_signals.h>
 
 #define SSI_VERSION 5
 

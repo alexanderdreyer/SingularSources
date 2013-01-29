@@ -15,7 +15,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 
-
+#include <Singular/si_signals.h>
 #include "mod2.h"
 
 #include "tok.h"
@@ -174,7 +174,7 @@ const char* slStatusPipe(si_link l, const char* request)
       FD_SET(d->fd_read, &mask);
       //Print("test fd %d\n",d->fd_read);
       /* check with select: chars waiting: no -> not ready */
-      s=select(d->fd_read+1, &mask, NULL, NULL, &wt);
+      s=si_select(d->fd_read+1, &mask, NULL, NULL, &wt);
     }
     switch (s)
     {

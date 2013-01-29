@@ -15,6 +15,8 @@
  *
  ***************************************************************************/
 
+#include <Singular/si_signals.h>
+
 #ifndef _MP_Types_h
 #define _MP_Types_h
 
@@ -23,10 +25,10 @@
 
 #ifdef __hpux
 #   define SELECT(maxfdp1, readfs, writefs, exceptfds, tvptr) \
-        select((int)maxfdp1, (int*)readfs, (int*)writefs,     \
+        si_select((int)maxfdp1, (int*)readfs, (int*)writefs,     \
                (int*)exceptfds, tvptr)
 #else /*  not __hpux */
-#   define SELECT  select
+#   define SELECT  si_select
 #endif /* not __hpux */
 
 

@@ -10,6 +10,8 @@
 
 #include <omalloc/omalloc.h>
 #include <Singular/s_buff.h>
+#include <Singular/si_signals.h>
+
 //struct s_buff_s
 //{
 //    char * buff; // buffer
@@ -73,7 +75,7 @@ int s_getc(s_buff F)
   {
     memset(F->buff,0,S_BUFF_LEN); /*debug*/
     SSI_BLOCK_CHLD;
-    int r=read(F->fd,F->buff,S_BUFF_LEN);
+    int r=si_read(F->fd,F->buff,S_BUFF_LEN);
     SSI_UNBLOCK_CHLD;
     if (r<=0)
     {
