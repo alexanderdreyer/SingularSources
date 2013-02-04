@@ -1426,7 +1426,7 @@ typedef int SOCKET;
 #   define  ERRORCODE(err)      err
 #   define  LASTERROR           errno
 
-#   define  CLOSE_SOCKET(s)             close(s)
+#   define  CLOSE_SOCKET(s)             si_close(s)
 #   define  READ_SOCKET(s, buf, len)    si_read(s, buf, len)
 #   define  WRITE_SOCKET(s, buf, len)   si_write(s, buf, len)
 

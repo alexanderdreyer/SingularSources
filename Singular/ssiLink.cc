@@ -821,7 +821,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
           }
           ssiToBeClosed->next=NULL;
           SSI_BLOCK_CHLD;
-          close(pc[1]); close(cp[0]);
+          si_close(pc[1]); si_close(cp[0]);
           d->f_write=fdopen(cp[1],"w");
           SSI_UNBLOCK_CHLD;
           d->f_read=s_open(pc[0]);
@@ -858,7 +858,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
         {
           d->pid=pid;
           SSI_BLOCK_CHLD;
-          close(pc[0]); close(cp[1]);
+          si_close(pc[0]); si_close(cp[1]);
           d->f_write=fdopen(pc[1],"w");
           SSI_UNBLOCK_CHLD;
           d->f_read=s_open(cp[0]);
@@ -922,7 +922,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
         d->f_read = s_open(newsockfd);
         d->f_write = fdopen(newsockfd, "w");
         SI_LINK_SET_RW_OPEN_P(l);
-        close(sockfd);
+        si_close(sockfd);
       }
       // no ssi-Link on stdin or stdout
       else
@@ -1011,7 +1011,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
         d->f_read = s_open(newsockfd);
         SSI_BLOCK_CHLD;
         d->f_write = fdopen(newsockfd, "w");
-        close(sockfd);
+        si_close(sockfd);
         SSI_UNBLOCK_CHLD;
         SI_LINK_SET_RW_OPEN_P(l);
         d->send_quit_at_exit=1;
@@ -1883,7 +1883,7 @@ si_link ssiCommandLink()
   if (ssiReserved_Clients<=0)
   {
     ssiReserved_P=0;
-    close(ssiReserved_sockfd);
+    si_close(ssiReserved_sockfd);
   }
   return l;
 }

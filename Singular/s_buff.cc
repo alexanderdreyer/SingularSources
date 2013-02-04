@@ -55,7 +55,7 @@ int    s_close(s_buff &F)
   {
     SSI_BLOCK_CHLD;
     omFreeSize(F->buff,S_BUFF_LEN);
-    int r=close(F->fd);
+    int r=si_close(F->fd);
     omFreeSize(F,sizeof(*F));
     F=NULL;
     SSI_UNBLOCK_CHLD;

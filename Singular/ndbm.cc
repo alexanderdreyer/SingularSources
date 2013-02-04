@@ -50,6 +50,8 @@ static char sccsid[] = "@(#)ndbm.c        5.3 (Berkeley) 3/9/86";
 #endif /* not HAVE_BCOPY */
 #include <Singular/ndbm.h>
 
+#include <Singular/si_signals.h>
+
 #define BYTESIZ 8
 #undef setbit
 
@@ -96,7 +98,7 @@ DBM * dbm_open(char *file, int flags, int mode)
   db->dbm_pagbno = db->dbm_dirbno = -1;
   return (db);
 bad1:
-  (void) close(db->dbm_pagf);
+  (void) si_close(db->dbm_pagf);
 bad:
   free((char *)db);
   return ((DBM *)0);
@@ -104,8 +106,8 @@ bad:
 
 void dbm_close(DBM *db)
 {
-  (void) close(db->dbm_dirf);
-  (void) close(db->dbm_pagf);
+  (void) si_close(db->dbm_dirf);
+  (void) si_close(db->dbm_pagf);
   free((char *)db);
 }
 

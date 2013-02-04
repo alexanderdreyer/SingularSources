@@ -25,6 +25,7 @@
 #include "silink.h"
 #include "lists.h"
 #include "pipeLink.h"
+#include <Singular/si_signals.h>
 
 typedef struct
 {
@@ -51,20 +52,20 @@ BOOLEAN pipeOpen(si_link l, short flag, leftv u)
   if (pid==0) /*child*/
   {
     /* close unnecessary pipe descriptors for a clean environment */
-    close(pc[1]); close(cp[0]);
+    si_close(pc[1]); close(cp[0]);
     /* dup pipe read/write to stdin/stdout */
     dup2( pc[0], STDIN_FILENO );
     dup2( cp[1], STDOUT_FILENO  );
     int r=system(l->name);
-    close(pc[0]);
-    close(cp[1]);
+    si_close(pc[0]);
+    si_close(cp[1]);
     exit(r);
         /* never reached*/
   }
   else if (pid>0)
   {
     d->pid=pid;
-    close(pc[0]); close(cp[1]);
+    si_close(pc[0]); si_close(cp[1]);
     d->f_read=fdopen(cp[0],"r");
     d->fd_read=cp[0];
     d->f_write=fdopen(pc[1],"w");
