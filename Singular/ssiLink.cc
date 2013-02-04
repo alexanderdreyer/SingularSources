@@ -18,6 +18,7 @@
 #include <ctype.h>   /*for isdigit*/
 #include <netdb.h>
 #include <sys/wait.h>
+#include <Singular/si_signals.h>
 #include <time.h>
 
 
@@ -907,7 +908,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
         while(bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0);
         Print("waiting on port %d\n", portno);mflush();
         listen(sockfd,1);
-        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
+        newsockfd = si_accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
         if(newsockfd < 0)
         {
           WerrorS("ERROR on accept");
@@ -996,7 +997,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
         omFree(ssh_command);
         omFree(ser_host);
         clilen = sizeof(cli_addr);
-        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
+        newsockfd = si_accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
         if(newsockfd < 0)
         {
           WerrorS("ERROR on accept");
@@ -1040,7 +1041,7 @@ BOOLEAN ssiOpen(si_link l, short flag, leftv u)
                 (char *)server->h_addr,
                 server->h_length);
           serv_addr.sin_port = htons(portno);
-          if (connect(sockfd,(sockaddr*)&serv_addr,sizeof(serv_addr)) < 0)
+          if (si_connect(sockfd,(sockaddr*)&serv_addr,sizeof(serv_addr)) < 0)
           { Werror("ERROR connecting(errno=%d)",errno); return TRUE; }
           //PrintS("connected\n");mflush();
           d->f_read=s_open(sockfd);
@@ -1150,22 +1151,22 @@ BOOLEAN ssiClose(si_link l)
       }
       if (d->r!=NULL) rKill(d->r);
       if ((d->pid!=0)
-      && (waitpid(d->pid,NULL,WNOHANG)==0))
+      && (si_waitpid(d->pid,NULL,WNOHANG)==0))
       {
         struct timespec t;
         t.tv_sec=0;
         t.tv_nsec=50000000; // <=50 ms
-        int r=nanosleep(&t,NULL);
-        if((r==0) && (waitpid(d->pid,NULL,WNOHANG)==0))
+        int r=si_nanosleep(&t,NULL);
+        if((r==0) && (si_waitpid(d->pid,NULL,WNOHANG)==0))
         {
           kill(d->pid,15);
           t.tv_sec=0;
           t.tv_nsec=10000000; // <=10 ms
-          r=nanosleep(&t,NULL);
-          if((r==0)&&(waitpid(d->pid,NULL,WNOHANG)==0))
+          r=si_nanosleep(&t,NULL);
+          if((r==0)&&(si_waitpid(d->pid,NULL,WNOHANG)==0))
           {
             kill(d->pid,9); // just to be sure
-            waitpid(d->pid,NULL,0);
+            si_waitpid(d->pid,NULL,0);
           }
         }
       }
@@ -1836,7 +1837,7 @@ si_link ssiCommandLink()
   }
   struct sockaddr_in cli_addr;
   int clilen = sizeof(cli_addr);
-  int newsockfd = accept(ssiReserved_sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
+  int newsockfd = si_accept(ssiReserved_sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)&clilen);
   if(newsockfd < 0)
   {
     Werror("ERROR on accept (errno=%d)",errno);
@@ -1907,7 +1908,7 @@ void sig_chld_hdl(int sig)
 
   loop
   {
-    kidpid = waitpid(-1, &status, WNOHANG);
+    kidpid = si_waitpid(-1, &status, WNOHANG);
     if (kidpid==-1)
     {
       /* continue on interruption (EINTR): */

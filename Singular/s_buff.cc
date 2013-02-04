@@ -44,7 +44,7 @@ s_buff s_open(int fd)
 s_buff s_open_by_name(const char *n)
 {
   SSI_BLOCK_CHLD;
-  int fd=open(n,O_RDONLY);
+  int fd=si_open(n,O_RDONLY);
   SSI_UNBLOCK_CHLD;
   return s_open(fd);
 }

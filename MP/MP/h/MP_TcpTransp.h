@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <Singular/si_signals.h>
 
 #ifdef __WIN32__
 
@@ -24,8 +25,8 @@
 #   define  LASTERROR           WSAGetLastError()
 
 #   define  CLOSE_SOCKET(s)             closesocket(s)
-#   define  READ_SOCKET(s, buf, len)    recv(s, buf, len, 0)
-#   define  WRITE_SOCKET(s, buf, len)   send(s, buf, len, 0)
+#   define  READ_SOCKET(s, buf, len)    si_recv(s, buf, len, 0)
+#   define  WRITE_SOCKET(s, buf, len)   si_send(s, buf, len, 0)
 
 int WinSockInitialize _ANSI_ARGS_((void));
 
@@ -47,8 +48,8 @@ typedef int SOCKET;
 #   define  LASTERROR           errno
 
 #   define  CLOSE_SOCKET(s)             close(s)
-#   define  READ_SOCKET(s, buf, len)    read(s, buf, len)
-#   define  WRITE_SOCKET(s, buf, len)   write(s, buf, len)
+#   define  READ_SOCKET(s, buf, len)    si_read(s, buf, len)
+#   define  WRITE_SOCKET(s, buf, len)   si_write(s, buf, len)
 
 #   define  HOSTENT             struct hostent
 #   define  SOCKADDR            struct sockaddr
