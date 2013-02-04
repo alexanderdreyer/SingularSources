@@ -504,9 +504,9 @@ static void stack_trace (char *const*args)
   pid = fork ();
   if (pid == 0)
   {
-    close (0); dup2 (in_fd[0],0);   /* set the stdin to the in pipe */
-    close (1); dup2 (out_fd[1],1);  /* set the stdout to the out pipe */
-    close (2); dup2 (out_fd[1],2);  /* set the stderr to the out pipe */
+    si_close (0); si_dup2 (in_fd[0],0);   /* set the stdin to the in pipe */
+    si_close (1); si_dup2 (out_fd[1],1);  /* set the stdout to the out pipe */
+    si_close (2); si_dup2 (out_fd[1],2);  /* set the stderr to the out pipe */
 
     execvp (args[0], args);      /* exec gdb */
     perror ("exec failed");
@@ -571,10 +571,10 @@ static void stack_trace (char *const*args)
       break;
   }
 
-  close (in_fd[0]);
-  close (in_fd[1]);
-  close (out_fd[0]);
-  close (out_fd[1]);
+  si_close (in_fd[0]);
+  si_close (in_fd[1]);
+  si_close (out_fd[0]);
+  si_close (out_fd[1]);
   m2_end(0);
 }
 

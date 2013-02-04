@@ -105,11 +105,16 @@ inline unsigned int si_sleep(unsigned int seconds)
   return 0;
 }
 
+SI_EINTR_SAVE_FUNC(int, dup, (int oldfd), (oldfd))
+SI_EINTR_SAVE_FUNC(int, dup2, (int oldfd, int newfd), (oldfd, newfd))
+SI_EINTR_SAVE_FUNC(int, dup3, (int oldfd, int newfd, int flags),
+		   (oldfd, newfd, flags))
+
+SI_EINTR_SAVE_FUNC(int, unlink, (const char *pathname), (pathname))
+
 // still todo: read,write,open   in ./omalloc/Misc/dlmalloc
 /// TODO: wrap and replace the following system calls: from man 7 signal
-/// ???fread, fwrite, fopen, fdopen, popen, fclose
-
-
+/// ???fread, fwrite, fopen, fdopen, popen, fclose, uinlink
 
 
 #undef SI_EINTR_SAVE_FUNC
