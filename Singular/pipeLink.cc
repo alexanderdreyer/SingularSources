@@ -52,7 +52,7 @@ BOOLEAN pipeOpen(si_link l, short flag, leftv u)
   if (pid==0) /*child*/
   {
     /* close unnecessary pipe descriptors for a clean environment */
-    si_close(pc[1]); close(cp[0]);
+    si_close(pc[1]); si_close(cp[0]);
     /* dup pipe read/write to stdin/stdout */
     si_dup2( pc[0], STDIN_FILENO );
     si_dup2( cp[1], STDOUT_FILENO  );

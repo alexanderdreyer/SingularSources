@@ -17,6 +17,9 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <stdio.h>
+
+#include <stdarg.h>
 
 #ifndef SINGULAR_SI_SIGNALS_H
 #define SINGULAR_SI_SIGNALS_H
@@ -71,8 +74,12 @@ SI_EINTR_SAVE_FUNC(ssize_t, writev, (int fd, const struct iovec *iov, int iovcnt
 SI_EINTR_SAVE_FUNC(int, open, (const char *pathname, int flags),
                    (pathname, flags))
 
+SI_EINTR_SAVE_FUNC(int, creat, (const char *pathname, mode_t mode),
+                   (pathname, mode))
+
 SI_EINTR_SAVE_FUNC(int, open, (const char *pathname, int flags, mode_t mode),
                    (pathname, flags, mode))
+
 SI_EINTR_SAVE_FUNC(int, close, (int fd), (fd))
 
 SI_EINTR_SAVE_FUNC(int, accept,
@@ -112,9 +119,30 @@ SI_EINTR_SAVE_FUNC(int, dup3, (int oldfd, int newfd, int flags),
 
 SI_EINTR_SAVE_FUNC(int, unlink, (const char *pathname), (pathname))
 
+
 // still todo: read,write,open   in ./omalloc/Misc/dlmalloc
 /// TODO: wrap and replace the following system calls: from man 7 signal
 /// ???fread, fwrite, fopen, fdopen, popen, fclose, uinlink
+SI_EINTR_SAVE_FUNC(int, vfscanf, 
+		   (FILE *stream, const char *format, va_list ap),
+		   (stream, format, ap))
+
+inline int si_fscanf(FILE *stream, const char *format, ...)
+{
+  va_list argptr;
+  va_start(argptr, format);
+  int res = si_vfscanf(stream, format, argptr);
+  va_end(argptr);
+  return res;
+}
+
+SI_EINTR_SAVE_FUNC(int, stat, (const char *path, struct stat *buf),
+                   (path, buf))
+SI_EINTR_SAVE_FUNC(int, fstat, (int fd, struct stat *buf),
+                   (fd, buf))
+SI_EINTR_SAVE_FUNC(int, lstat, (const char *path, struct stat *buf),
+                   (path, buf))
+
 
 
 #undef SI_EINTR_SAVE_FUNC
