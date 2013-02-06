@@ -1206,7 +1206,7 @@ static int singular_manual(char *str)
   while(!feof(index))
   {
     char* dummy=fgets(buffer, BUF_LEN, index); /* */
-    (void)sscanf(buffer, "Node:%[^\177]\177%ld\n", Index, &offset);
+    (void)si_sscanf(buffer, "Node:%[^\177]\177%ld\n", Index, &offset);
     for(p=Index; *p; p++) *p = tolow(*p);/* */
     (void)strcat(Index, " ");
     if( strstr(Index, String)!=NULL)

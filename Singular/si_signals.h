@@ -18,23 +18,28 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <stdio.h>
-
+#include <semaphore.h>
 #include <stdarg.h>
 
 #ifndef SINGULAR_SI_SIGNALS_H
 #define SINGULAR_SI_SIGNALS_H
 
-#define SI_EINTR_SAVE_FUNC(return_type, func, decl, args) \
-inline return_type si_##func decl        \
+#define SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, err_domain)  \
+static inline return_type si_##func decl        \
 {                                        \
   int res = -1;	                         \
   do                                     \
   {                                      \
     res = func args;		         \
-  } while((res < 0) && (errno == EINTR));\
+  } while((res err_domain) && (errno == EINTR));\
   return res;                            \
 }
 
+#define SI_EINTR_SAVE_FUNC(return_type, func, decl, args) \
+  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, < 0)
+
+#define SI_EINTR_SAVE_SCANF(return_type, func, decl, args) \
+  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, == EOF)
 
 SI_EINTR_SAVE_FUNC(int, select,
                    (int nfds, fd_set *readfds, fd_set *writefds,
@@ -70,15 +75,30 @@ SI_EINTR_SAVE_FUNC(ssize_t, write, (int fd, const void *buf, size_t count),
 
 SI_EINTR_SAVE_FUNC(ssize_t, writev, (int fd, const struct iovec *iov, int iovcnt),
                    (fd, iov, iovcnt) )
- 
-SI_EINTR_SAVE_FUNC(int, open, (const char *pathname, int flags),
+
+#define SI_OPEN1 open
+#define SI_OPEN2 open
+
+SI_EINTR_SAVE_FUNC(int, SI_OPEN1, (const char *pathname, int flags),
                    (pathname, flags))
+SI_EINTR_SAVE_FUNC(int, SI_OPEN2, (const char *pathname, int flags,
+                                   mode_t mode),
+                   (pathname, flags, mode))
+#undef SI_OPEN1
+#undef SI_OPEN2
+
+#define VA_NARGS_IMPL(_1, _2, _3, _4, _5, N, ...) N
+#define VA_NARGS(...) VA_NARGS_IMPL(X,##__VA_ARGS__, 4, 3, 2, 1, 0)
+#define VARARG_IMPL(base, count, ...) base##count(__VA_ARGS__)
+
+
+#define si_open(pathname, flags, ...) \
+  VARARG_IMPL(si_SI_OPEN, VA_NARGS(__VA_ARGS__), pathname, flags, __VA_ARGS__)
+
 
 SI_EINTR_SAVE_FUNC(int, creat, (const char *pathname, mode_t mode),
                    (pathname, mode))
 
-SI_EINTR_SAVE_FUNC(int, open, (const char *pathname, int flags, mode_t mode),
-                   (pathname, flags, mode))
 
 SI_EINTR_SAVE_FUNC(int, close, (int fd), (fd))
 
@@ -92,7 +112,7 @@ SI_EINTR_SAVE_FUNC(int, connect,
 
 /// @note: We respect that the user may explictely deactivate the
 /// restart feature by setting the second argumetn to NULL.
-inline int
+static inline int
 si_nanosleep(const struct timespec *req, struct timespec *rem) {
 
   int res = -1;
@@ -103,7 +123,8 @@ si_nanosleep(const struct timespec *req, struct timespec *rem) {
   return res;   
 }
 
-inline unsigned int si_sleep(unsigned int seconds)
+static inline unsigned int
+si_sleep(unsigned int seconds)
 {
   do
   {
@@ -121,17 +142,44 @@ SI_EINTR_SAVE_FUNC(int, unlink, (const char *pathname), (pathname))
 
 
 // still todo: read,write,open   in ./omalloc/Misc/dlmalloc
-/// TODO: wrap and replace the following system calls: from man 7 signal
-/// ???fread, fwrite, fopen, fdopen, popen, fclose, uinlink
-SI_EINTR_SAVE_FUNC(int, vfscanf, 
+SI_EINTR_SAVE_SCANF(int, vscanf, 
+		   (const char *format, va_list ap),
+		   (format, ap))
+
+static inline
+int si_scanf(const char *format, ...)
+{
+  va_list argptr;
+  va_start(argptr, format);
+  int res = si_vscanf(format, argptr);
+  va_end(argptr);
+  return res;
+}
+
+SI_EINTR_SAVE_SCANF(int, vfscanf, 
 		   (FILE *stream, const char *format, va_list ap),
 		   (stream, format, ap))
 
-inline int si_fscanf(FILE *stream, const char *format, ...)
+static inline int
+si_fscanf(FILE *stream, const char *format, ...)
 {
   va_list argptr;
   va_start(argptr, format);
   int res = si_vfscanf(stream, format, argptr);
+  va_end(argptr);
+  return res;
+}
+
+SI_EINTR_SAVE_SCANF(int, vsscanf, 
+		   (const char *str, const char *format, va_list ap),
+		   (str, format, ap))
+
+static inline int 
+si_sscanf(const char *str, const char *format, ...)
+{
+  va_list argptr;
+  va_start(argptr, format);
+  int res = si_vsscanf(str, format, argptr);
   va_end(argptr);
   return res;
 }
@@ -143,6 +191,26 @@ SI_EINTR_SAVE_FUNC(int, fstat, (int fd, struct stat *buf),
 SI_EINTR_SAVE_FUNC(int, lstat, (const char *path, struct stat *buf),
                    (path, buf))
 
+
+SI_EINTR_SAVE_FUNC(int, sigaction,
+                   (int signum, const struct sigaction *act, 
+                    struct sigaction *oldact),
+                   (signum, act, oldact))
+
+
+#ifdef HAVE_SIGINTERRUPT
+SI_EINTR_SAVE_FUNC(int, siginterrupt, (int sig, int flag),
+                   (sig, flag))
+#else
+#define si_siginterrupt(arg1, arg2) 
+#endif
+
+
+SI_EINTR_SAVE_FUNC(int, sem_wait, (sem_t *sem), (sem))
+SI_EINTR_SAVE_FUNC(int, sem_trywait, (sem_t *sem), (sem))
+SI_EINTR_SAVE_FUNC(int, sem_timedwait,
+                   (sem_t *sem, const struct timespec *abs_timeout),
+                   (sem, abs_timeout))
 
 
 #undef SI_EINTR_SAVE_FUNC

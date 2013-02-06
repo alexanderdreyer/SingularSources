@@ -142,12 +142,10 @@ si_hdl_typ si_set_signal ( int sig, si_hdl_typ signal_handler)
   {
      fprintf(stderr, "Unable to init signal %d ... exiting...\n", sig);
   }
-#ifdef HAVE_SIGINTERRUPT
-  siginterrupt(sig, 0); 
+  si_siginterrupt(sig, 0); 
   /*system calls will be restarted if interrupted by  the  specified
    * signal sig.  This is the default behavior in Linux.
    */
-#endif
 #else
   struct sigaction new_action,old_action;
      
@@ -158,7 +156,7 @@ si_hdl_typ si_set_signal ( int sig, si_hdl_typ signal_handler)
   else
     new_action.sa_flags = SA_RESTART;
      
-  int r=sigaction (sig, &new_action, &old_action);
+  int r=si_sigaction (sig, &new_action, &old_action);
   si_hdl_typ retval=(si_hdl_typ)old_action.sa_handler;
   if (r == -1)
   {
@@ -521,9 +519,9 @@ static void stack_trace (char *const*args)
   FD_ZERO (&fdset);
   FD_SET (out_fd[0], &fdset);
 
-  write (in_fd[1], "backtrace\n", 10);
-  write (in_fd[1], "p si_stop_stack_trace_x = 0\n", 28);
-  write (in_fd[1], "quit\n", 5);
+  si_write (in_fd[1], "backtrace\n", 10);
+  si_write (in_fd[1], "p si_stop_stack_trace_x = 0\n", 28);
+  si_write (in_fd[1], "quit\n", 5);
 
   index = 0;
   state = 0;
@@ -534,13 +532,13 @@ static void stack_trace (char *const*args)
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
-    sel = select (FD_SETSIZE, &readset, NULL, NULL, &tv);
+    sel = si_select (FD_SETSIZE, &readset, NULL, NULL, &tv);
     if (sel == -1)
       break;
 
     if ((sel > 0) && (FD_ISSET (out_fd[0], &readset)))
     {
-      if (read (out_fd[0], &c, 1))
+      if (si_read (out_fd[0], &c, 1))
       {
         switch (state)
         {
