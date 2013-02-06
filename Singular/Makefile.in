@@ -564,10 +564,10 @@ install-nolns: all installbin-nolns installslib-nolns
 installbin: ${SING_EXEC} libparse ESingular TSingular ${RUN_SINGULARS}
 	${MKINSTALLDIRS} ${bindir} ${bindir_mod}
 	${INSTALL_PROGRAM} ${SING_EXEC} ${SINGULAR}
-	-for file in *.so; do \
+	-for file in $(wildcard *.so); do \
 	  ${INSTALL_PROGRAM} $$file ${bindir}; \
 	done
-	-for file in MOD/*.so; do \
+	-for file in $(wildcard MOD/*.so); do \
 	  ${INSTALL_PROGRAM} $$file ${bindir}/MOD; \
 	done
 	${INSTALL_PROGRAM} libparse ${RUN_SINGULARS} ${bindir}
@@ -580,10 +580,10 @@ installbin: ${SING_EXEC} libparse ESingular TSingular ${RUN_SINGULARS}
 installbin-nolns: ${SING_EXEC} libparse ESingular TSingular ${RUN_SINGULARS}
 	${MKINSTALLDIRS} ${bindir} ${bindir_mod}
 	${INSTALL_PROGRAM} ${SING_EXEC} ${SINGULAR}
-	-for file in *.so; do \
+	-for file in $(wildcard *.so); do \
 	  ${INSTALL_PROGRAM} $$file ${bindir}; \
 	done
-	-for file in MOD/*.so; do \
+	-for file in $(wildcard MOD/*.so); do \
 	  ${INSTALL_PROGRAM} $$file ${bindir}/MOD; \
 	done
 	${INSTALL_PROGRAM} libparse ${RUN_SINGULARS} ${bindir}
@@ -668,8 +668,12 @@ install-bindist: $(HEADERS) $(SOURCES) Makefile depend
 	${MAKE} ${SING_EXEC} ESingular TSingular libparse ${RUN_SINGULARS}
 	${MKINSTALLDIRS} ${install_bindir} ${install_bindir_mod}
 	${INSTALL_PROGRAM} ${SING_EXEC} ${install_bindir}/Singular
-	-${INSTALL_PROGRAM} *.so ${install_bindir}
-	-${INSTALL_PROGRAM} MOD/*.so ${install_bindir}/MOD
+	-for file in $(wildcard *.so); do \
+	  ${INSTALL_PROGRAM} $$file ${bindir}; \
+	done
+	-for file in $(wildcard MOD/*.so); do \
+	  ${INSTALL_PROGRAM} $$file ${bindir}/MOD; \
+	done
 	${INSTALL_PROGRAM} -s  libparse ${RUN_SINGULARS} ESingular TSingular ${install_bindir}
 	${INSTALL_PROGRAM} surfex ${install_bindir}
 	echo "#undef MAKE_DISTRIBUTION " > distrib.h
