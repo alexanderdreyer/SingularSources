@@ -24,8 +24,8 @@
 #ifndef SINGULAR_SI_SIGNALS_H
 #define SINGULAR_SI_SIGNALS_H
 
-#define SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, err_domain)  \
-static inline return_type si_##func decl        \
+#define SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, newfunc, func, decl, args, err_domain) \
+static inline return_type newfunc decl   \
 {                                        \
   int res = -1;	                         \
   do                                     \
@@ -36,10 +36,10 @@ static inline return_type si_##func decl        \
 }
 
 #define SI_EINTR_SAVE_FUNC(return_type, func, decl, args) \
-  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, < 0)
+  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, si_##func, func, decl, args, < 0)
 
 #define SI_EINTR_SAVE_SCANF(return_type, func, decl, args) \
-  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, func, decl, args, == EOF)
+  SI_EINTR_SAVE_FUNC_TEMPLATE(return_type, si_##func, func, decl, args, == EOF)
 
 SI_EINTR_SAVE_FUNC(int, select,
                    (int nfds, fd_set *readfds, fd_set *writefds,
@@ -76,25 +76,15 @@ SI_EINTR_SAVE_FUNC(ssize_t, write, (int fd, const void *buf, size_t count),
 SI_EINTR_SAVE_FUNC(ssize_t, writev, (int fd, const struct iovec *iov, int iovcnt),
                    (fd, iov, iovcnt) )
 
-#define SI_OPEN1 open
-#define SI_OPEN2 open
+SI_EINTR_SAVE_FUNC_TEMPLATE(int, si_open1, open, (const char *pathname, int flags),
+                            (pathname, flags), < 0)
+SI_EINTR_SAVE_FUNC_TEMPLATE(int, si_open2, open,
+                            (const char *pathname, int flags, mode_t mode),
+                            (pathname, flags, mode), < 0)
 
-SI_EINTR_SAVE_FUNC(int, SI_OPEN1, (const char *pathname, int flags),
-                   (pathname, flags))
-SI_EINTR_SAVE_FUNC(int, SI_OPEN2, (const char *pathname, int flags,
-                                   mode_t mode),
-                   (pathname, flags, mode))
-#undef SI_OPEN1
-#undef SI_OPEN2
-
-#define VA_NARGS_IMPL(_1, _2, _3, _4, _5, N, ...) N
-#define VA_NARGS(...) VA_NARGS_IMPL(X,##__VA_ARGS__, 4, 3, 2, 1, 0)
-#define VARARG_IMPL(base, count, ...) base##count(__VA_ARGS__)
-
-
-#define si_open(pathname, flags, ...) \
-  VARARG_IMPL(si_SI_OPEN, VA_NARGS(__VA_ARGS__), pathname, flags, __VA_ARGS__)
-
+/* Enulate overloading usung preprocessor (we need to be C-compatible) */
+#define SI_GET_FIFTH(_4,_3, _2, _1, N, ...) N
+#define si_open(...) SI_GET_FIFTH(X,##__VA_ARGS__, si_open2, si_open1)(__VA_ARGS__)
 
 SI_EINTR_SAVE_FUNC(int, creat, (const char *pathname, mode_t mode),
                    (pathname, mode))
@@ -110,8 +100,9 @@ SI_EINTR_SAVE_FUNC(int, connect,
                    (int sockfd, const struct sockaddr *addr, socklen_t addrlen),
                    (sockfd, addr, addrlen))
 
-/// @note: We respect that the user may explictely deactivate the
-/// restart feature by setting the second argumetn to NULL.
+/* @note: We respect that the user may explictely deactivate the
+ * restart feature by setting the second argumetn to NULL.
+ */
 static inline int
 si_nanosleep(const struct timespec *req, struct timespec *rem) {
 
@@ -140,8 +131,6 @@ SI_EINTR_SAVE_FUNC(int, dup3, (int oldfd, int newfd, int flags),
 
 SI_EINTR_SAVE_FUNC(int, unlink, (const char *pathname), (pathname))
 
-
-// still todo: read,write,open   in ./omalloc/Misc/dlmalloc
 SI_EINTR_SAVE_SCANF(int, vscanf, 
 		   (const char *format, va_list ap),
 		   (format, ap))
