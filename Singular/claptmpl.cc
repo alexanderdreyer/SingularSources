@@ -110,10 +110,6 @@ template void noro_step<tgb_uint16>(poly*p,int &pn,slimgb_alg* c);
 template void noro_step<tgb_uint32>(poly*p,int &pn,slimgb_alg* c);
 //std::priority_queue<MonRedRes>
 //
-#ifdef HAVE_VANISHING_IDEAL
-#include <list>
-template class std::list<int>;
-#endif /* HAVE_VANISHING_IDEAL */
 #endif
 
 /* next lines are templates used in new minor code */

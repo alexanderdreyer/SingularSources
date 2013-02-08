@@ -437,6 +437,12 @@ mpsr_Tok.inc: gentable2.cc grammar.h tok.h table.h mod2.h
 	./gentable2
 	/bin/rm -f gentable2 gentable2.exe
 
+FactoredNumber.o: FactoredNumber.cc
+	${CXX} ${CXXFLAGS} ${CPPFLAGS} ${DEFS} -c $<
+
+VanishingIdeal.o: VanishingIdeal.cc
+	${CXX} ${CXXFLAGS} ${CPPFLAGS} ${DEFS} -c $<
+
 
 version.h: ${SOURCES} ${HEADERS} Makefile.in mod2.h.in \
            configure.in

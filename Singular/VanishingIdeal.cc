@@ -251,7 +251,7 @@ ideal gBForVanishingIdealDirect ()
   int n = currRing->N;
   int mm = rChar(currRing);
   FactoredNumber m(mm);
-  int s = FactoredNumber::FactoredNumber(mm).smarandache();
+  int s = m.smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = s;
   counterDivides = s;
@@ -477,7 +477,7 @@ bool isZeroFunction (const poly f)
      vanishes for all of these, then f is guaranteed to be the zero function. */
   int m = rChar(currRing);
   int n = currRing->N;
-  int lambda = FactoredNumber::FactoredNumber(m).smarandache();
+  int lambda = FactoredNumber(m).smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = lambda;
   counterDivides = lambda;
@@ -502,7 +502,7 @@ int* nonZeroTuple (const poly f)
      the first tuple it finds, for which f does not vanish. */
   int m = rChar(currRing);
   int n = currRing->N;
-  int lambda = FactoredNumber::FactoredNumber(m).smarandache();
+  int lambda = FactoredNumber(m).smarandache();
 #ifdef PRINT_VANISHING_IDEAL_OPERATIONS
   counterTimes = lambda;
   counterDivides = lambda;

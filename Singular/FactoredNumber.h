@@ -50,7 +50,7 @@ class FactoredNumber
       * @param e the exponent of the power to be computed
       * @result the power b^e
       */
-    static int FactoredNumber::power (const int b, const int e);
+    static int power (const int b, const int e);
   public:
     /**
       * A constructor which expects a natural number n, n >= 1, which has
@@ -78,11 +78,19 @@ class FactoredNumber
     /**
       * The destructor.
       */
-    ~FactoredNumber ();
+    ~FactoredNumber () {}
     /**
       * A method for computing the product of the FactoredNumber
-      * given by <c>*this</c> and the argument. The result is a new
-      * instance of FactoredNumber.
+      * given by <c>*this</c> and the argument in place. The result
+      * is stored in <c>*this</c>.
+      * @param fn a reference to some FactoredNumber
+      * @return the product of *this and fn
+      */
+    FactoredNumber& operator*= (const FactoredNumber& fn);
+    /**
+      * A method for computing the product of the FactoredNumber
+      * given by <c>*this</c> and the argument in place. The result
+      * is stored in <c>*this</c>.
       * @param fn a reference to some FactoredNumber
       * @return the product of *this and fn
       */
